@@ -10,16 +10,16 @@ import java.util.List;
  * @author Xenia Thor
  */
 
-// * Renders 50 customer dots in a compact grid, each coloured
-// * by the customer's current state.
-// * Colours match the legend in the lecturer's example video:
-// *   • Grey    = Arrived
-// *   • Yellow  = Basket
-// *   • Blue    = Washing
-// *   • Orange  = Drying
-// *   • Purple  = Payment
-// *   • Green   = Done
-// *   • Red     = Left (impatient)
+// Renders 50 customer dots in a compact grid, each coloured
+// by the customer's current state.
+// Colours match the legend in the lecturer's example video:
+// • Grey    = Arrived
+// • Yellow  = Basket
+// • Blue    = Washing
+// • Orange  = Drying
+// • Purple  = Payment
+// • Green   = Done
+// • Red     = Left (impatient)
 public class CustomerDotPanel extends JPanel {
 
     // State → colour mapping
@@ -42,10 +42,10 @@ public class CustomerDotPanel extends JPanel {
     }
 
     @Override
-    protected void paintComponent(Graphics g) {
-        super.paintComponent(g);
-        Graphics2D g2 = (Graphics2D) g;
-        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+    protected void paintComponent(Graphics graphics) {
+        super.paintComponent(graphics);
+        Graphics2D graphics2 = (Graphics2D) graphics;
+        graphics2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
                             RenderingHints.VALUE_ANTIALIAS_ON);
 
         List<SmartLaundrySimulation.CustomerState> states = new ArrayList<>();
@@ -56,10 +56,10 @@ public class CustomerDotPanel extends JPanel {
         }
 
         if (states.isEmpty()) {
-            g2.setFont(new Font("Times New Roman", Font.ITALIC, 11));
-            g2.setColor(new Color(120, 110, 140));
-            g2.drawString("Waiting for simulation to start...", 10, getHeight() / 2 + 4);
-            drawLegend(g2, 10, getHeight() - 16);
+            graphics2.setFont(new Font("Times New Roman", Font.ITALIC, 11));
+            graphics2.setColor(new Color(120, 110, 140));
+            graphics2.drawString("Waiting for simulation to start...", 10, getHeight() / 2 + 4);
+            drawLegend(graphics2, 10, getHeight() - 16);
             return;
         }
 
@@ -71,26 +71,26 @@ public class CustomerDotPanel extends JPanel {
         for (int i = 0; i < states.size(); i++) {
             SmartLaundrySimulation.CustomerState state = states.get(i);
             int stateIdx = state.ordinal();
-            Color c = STATE_COLORS[Math.min(stateIdx, STATE_COLORS.length - 1)];
+            Color color = STATE_COLORS[Math.min(stateIdx, STATE_COLORS.length - 1)];
 
             int px = 6 + col * (dot + gap);
             int py = 4 + row * (dot + gap + 1);
 
             // Draw dot
-            g2.setColor(c);
-            g2.fillOval(px, py, dot, dot);
+            graphics2.setColor(color);
+            graphics2.fillOval(px, py, dot, dot);
 
             // Subtle border
-            g2.setColor(c.darker());
-            g2.setStroke(new BasicStroke(0.8f));
-            g2.drawOval(px, py, dot, dot);
+            graphics2.setColor(color.darker());
+            graphics2.setStroke(new BasicStroke(0.8f));
+            graphics2.drawOval(px, py, dot, dot);
 
             // Customer number inside dot
-            g2.setFont(new Font("Times New Roman", Font.BOLD, 7));
-            g2.setColor(Color.WHITE);
+            graphics2.setFont(new Font("Times New Roman", Font.BOLD, 7));
+            graphics2.setColor(Color.WHITE);
             String num = String.valueOf(i + 1);
-            FontMetrics fm = g2.getFontMetrics();
-            g2.drawString(num,
+            FontMetrics fm = graphics2.getFontMetrics();
+            graphics2.drawString(num,
                 px + (dot - fm.stringWidth(num)) / 2,
                 py + dot / 2 + fm.getAscent() / 2 - 1);
 
@@ -99,18 +99,18 @@ public class CustomerDotPanel extends JPanel {
         }
 
         // Legend row at bottom
-        drawLegend(g2, 6, getHeight() - 14);
+        drawLegend(graphics2, 6, getHeight() - 14);
     }
 
-    private void drawLegend(Graphics2D g2, int x, int y) {
-        g2.setFont(new Font("Times New Roman", Font.PLAIN, 9));
-        FontMetrics fm = g2.getFontMetrics();
+    private void drawLegend(Graphics2D graphics2, int x, int y) {
+        graphics2.setFont(new Font("Times New Roman", Font.PLAIN, 9));
+        FontMetrics fm = graphics2.getFontMetrics();
         int px = x;
         for (int i = 0; i < STATE_LABELS.length; i++) {
-            g2.setColor(STATE_COLORS[i]);
-            g2.fillOval(px, y - 8, 9, 9);
-            g2.setColor(new Color(50, 40, 70));
-            g2.drawString(STATE_LABELS[i], px + 12, y);
+            graphics2.setColor(STATE_COLORS[i]);
+            graphics2.fillOval(px, y - 8, 9, 9);
+            graphics2.setColor(new Color(50, 40, 70));
+            graphics2.drawString(STATE_LABELS[i], px + 12, y);
             px += fm.stringWidth(STATE_LABELS[i]) + 22;
         }
     }

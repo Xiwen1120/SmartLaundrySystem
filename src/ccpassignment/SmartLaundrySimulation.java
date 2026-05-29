@@ -6,11 +6,12 @@ import java.awt.*;
 import java.awt.event.*;
 import java.util.*;
 import java.util.List;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
 import java.util.concurrent.locks.*;
 import javax.sound.sampled.*;
-import java.util.concurrent.Semaphore;
+
 
 
 /**
@@ -33,6 +34,9 @@ public class SmartLaundrySimulation extends JFrame {
     public static final Semaphore semDryer  = new Semaphore(NUM_DRYERS,   true);
     public static final Semaphore semKiosk  = new Semaphore(NUM_KIOSKS,   true);
     public static final Semaphore semBasket = new Semaphore(NUM_BASKETS,  true);
+    public static final NestedMonitor paymentMonitor = new NestedMonitor (semKiosk);
+    
+//  public static final NestedMonitor paymentMonitor = new NestedMonitor (semKiosk);
 
     //ReentrantLock + Condition — Mechanism 2
     //reentrantLock = guard share statistics
@@ -627,7 +631,9 @@ public class SmartLaundrySimulation extends JFrame {
     // Thread-safe log to activity area
     public static void log(String msg) {
         long sec = (System.currentTimeMillis() % 100_000);
-        logQueue.offer(String.format("[%5.1fs] %s", sec / 1000.0, msg));
+        String format = String.format("[%5.1fs] %s", sec / 1000.0, msg);
+        logQueue.offer(format);
+        System.out.println(format);
     }
 
     // Beep on payment complete 
