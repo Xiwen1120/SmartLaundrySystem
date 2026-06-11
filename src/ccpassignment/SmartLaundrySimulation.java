@@ -4,12 +4,14 @@ import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.awt.image.BufferedImage;
 import java.util.*;
 import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.*;
+//import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
 import java.util.concurrent.locks.*;
+import javax.imageio.ImageIO;
 import javax.sound.sampled.*;
 
 
@@ -25,7 +27,7 @@ public class SmartLaundrySimulation extends JFrame {
     public static final int NUM_WASHERS = 6;
     public static final int NUM_DRYERS = 4;
     public static final int NUM_KIOSKS = 2;
-    public static final int NUM_BASKETS = 3;
+    public static final int NUM_BASKETS = 5;
     public static final int TOTAL_CUSTOMERS = 50;
 
     //Semaphores — Mechanism 1
@@ -94,12 +96,12 @@ public class SmartLaundrySimulation extends JFrame {
 
     // Customer states (for dot colours)
     public enum CustomerState {
-        ARRIVED, BASKET, WASHING, DRYING, PAYMENT, DONE, LEFT
+        ARRIVED, BASKET, WASHING, DRYING, PAYMENT, DONE, LEFT, FAILED
     }
 
     // GUI design
     // Status bars
-    private JProgressBar progresBarWasher, progressBarDryer, pbKiosk, pbBasket;
+    private JProgressBar progresBarWasher, progressBarDryer, pbKiosk, pbBasket, pbTotalLeft, pbTotalDone;
     // Machine icon panels
     private MachineIconPanel[] washerPanels = new MachineIconPanel[NUM_WASHERS];
     private MachineIconPanel[] dryerPanels  = new MachineIconPanel[NUM_DRYERS];
@@ -107,6 +109,7 @@ public class SmartLaundrySimulation extends JFrame {
     private MachineIconPanel[] basketPanels = new MachineIconPanel[NUM_BASKETS];
     private JTextArea logArea;
     private CustomerDotPanel dotPanel;
+    private CustomerArrivePanel customerArrivePanel; 
     private JLabel   lblProgress;
     private JButton  btnStart, btnStop, btnReset, btnCancel;
     private JLabel lblTitle;
@@ -116,8 +119,14 @@ public class SmartLaundrySimulation extends JFrame {
     public SmartLaundrySimulation() {
         super("Smart Laundry Facility Simulation");
         setDefaultCloseOperation(EXIT_ON_CLOSE);
-        setSize(1340, 900);
-        setMinimumSize(new Dimension(1200, 800));
+//        setSize(1340, 900);
+//        setMinimumSize(new Dimension(1200, 800));
+        Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
+        int width  = (int)(screen.width  * 0.95);
+        int height = (int)(screen.height * 0.95);
+        setSize(width, height);
+        setMinimumSize(new Dimension(1000, 700));
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
         setLocationRelativeTo(null);
         new javax.swing.Timer(100, e -> refreshBtn()).start(); //10 fps GUI refresh
         buildUI();
@@ -166,10 +175,14 @@ public class SmartLaundrySimulation extends JFrame {
         progressBarDryer  = makePB("Dryer", 4);
         pbKiosk  = makePB("Payment Kiosk", 2);
         pbBasket = makePB("Basket", 3);
+        pbTotalLeft = makePB("Total Left", TOTAL_CUSTOMERS);
+        pbTotalDone = makePB("Total Done", TOTAL_CUSTOMERS);
         pbRow.add(wrapPB("Waching Machine", progresBarWasher));
         pbRow.add(wrapPB("Dryer", progressBarDryer));
         pbRow.add(wrapPB("Payment Kiosk", pbKiosk));
         pbRow.add(wrapPB("Basket", pbBasket));
+        pbRow.add(wrapPB("Total Left", pbTotalLeft));
+        pbRow.add(wrapPB("Total Done", pbTotalDone));
         statusContent.add(pbRow, BorderLayout.CENTER);
         statusContent.add(pbRow, BorderLayout.CENTER);
         statusBar.add(statusContent);
@@ -235,10 +248,10 @@ public class SmartLaundrySimulation extends JFrame {
         lblProgress.setBackground(new Color(80, 80, 100));
         lblProgress.setBorder(BorderFactory.createLineBorder(Color.WHITE, 1));
 
-        btnStart = styledBtn("Start", new Color(85, 55, 237));
-        btnStop  = styledBtn("Stop",  new Color(85, 55, 237));
-        btnReset = styledBtn("Reset", new Color(85, 55, 237));
-        btnCancel = styledBtn("Cancel", new Color (85, 55, 237));
+        btnStart = styledBtn("Start", new Color(34, 197, 94));
+        btnStop  = styledBtn("Stop",  new Color(239, 68, 68));
+        btnReset = styledBtn("Reset", new Color(234, 179, 8));
+        btnCancel = styledBtn("Cancel", new Color (6, 182, 212));
         btnStop.setEnabled(false);
 
         btnStart.addActionListener(e -> startSim());
@@ -316,66 +329,169 @@ public class SmartLaundrySimulation extends JFrame {
     }
 
     // Build right section: kiosk + baskets + log 
-    private JPanel buildRightSection(Color bg) {
-        JPanel right = new JPanel(new GridLayout(2, 1, 0, 6));
-        right.setBackground(new Color(185, 175, 200));
+private JPanel buildRightSection(Color bg) {
+    JPanel right = new JPanel(new GridLayout(2, 1, 0, 6));
+    right.setBackground(new Color(185, 175, 200));
 
-        // Top-right: Kiosk + Baskets side by side
-        JPanel topRight = new JPanel(new GridLayout(1, 2, 6, 0));
-        topRight.setBackground(new Color(185, 175, 200));
+    // Top-right: Kiosk + Baskets side by side (unchanged)
+    JPanel topRight = new JPanel(new GridLayout(1, 2, 6, 0));
+    topRight.setBackground(new Color(185, 175, 200));
 
-        // Kiosk panel
-        JPanel kioskCol = new JPanel(new BorderLayout());
-        kioskCol.setBackground(bg);
-        kioskCol.setBorder(compoundBorder("Payment Kiosk"));
-
-        JPanel kioskGrid = new JPanel(new GridLayout(NUM_KIOSKS, 1, 0, 8));
-        kioskGrid.setBackground(bg);
-        kioskGrid.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
-        for (int i = 0; i < NUM_KIOSKS; i++) {
-            kioskPanels[i] = new MachineIconPanel(MachineIconPanel.Type.KIOSK, "ATM" + (i+1));
-            kioskGrid.add(kioskPanels[i]);
-        }
-        kioskCol.add(kioskGrid, BorderLayout.CENTER);
-
-        // Basket panel
-        JPanel basketCol = new JPanel(new BorderLayout());
-        basketCol.setBackground(bg);
-        basketCol.setBorder(compoundBorder("Baskets"));
-
-        JPanel basketGrid = new JPanel(new GridLayout(NUM_BASKETS, 1, 0, 8));
-        basketGrid.setBackground(bg);
-        basketGrid.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
-        for (int i = 0; i < NUM_BASKETS; i++) {
-            basketPanels[i] = new MachineIconPanel(MachineIconPanel.Type.BASKET, "BK" + (i+1));
-            basketGrid.add(basketPanels[i]);
-        }
-        basketCol.add(basketGrid, BorderLayout.CENTER);
-
-        topRight.add(kioskCol);
-        topRight.add(basketCol);
-
-        // Bottom-right: Activity log
-        JPanel logPanel = new JPanel(new BorderLayout());
-        logPanel.setBackground(bg);
-        logPanel.setBorder(compoundBorder("Activity Log"));
-
-        logArea = new JTextArea();
-        logArea.setFont(new Font("Consolas", Font.PLAIN, 11));
-        logArea.setEditable(false);
-        logArea.setBackground(new Color(218, 212, 228));
-        logArea.setForeground(new Color(30, 20, 50));
-        logArea.setLineWrap(true);
-        logArea.setWrapStyleWord(true);
-
-        JScrollPane sp = new JScrollPane(logArea);
-        sp.setBorder(null);
-        logPanel.add(sp);
-
-        right.add(topRight);
-        right.add(logPanel);
-        return right;
+    JPanel kioskCol = new JPanel(new BorderLayout());
+    kioskCol.setBackground(bg);
+    kioskCol.setBorder(compoundBorder("Payment Kiosk"));
+    JPanel kioskGrid = new JPanel(new GridLayout(NUM_KIOSKS, 1, 0, 8));
+    kioskGrid.setBackground(bg);
+    kioskGrid.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+    for (int i = 0; i < NUM_KIOSKS; i++) {
+        kioskPanels[i] = new MachineIconPanel(MachineIconPanel.Type.KIOSK, "ATM" + (i+1));
+        kioskGrid.add(kioskPanels[i]);
     }
+    kioskCol.add(kioskGrid, BorderLayout.CENTER);
+
+    JPanel basketCol = new JPanel(new BorderLayout());
+    basketCol.setBackground(bg);
+    basketCol.setBorder(compoundBorder("Baskets"));
+    JPanel basketGrid = new JPanel(new GridLayout(3, 2, 6, 8));
+    basketGrid.setBackground(bg);
+    basketGrid.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+    for (int i = 0; i < NUM_BASKETS; i++) {
+        basketPanels[i] = new MachineIconPanel(MachineIconPanel.Type.BASKET, "BK" + (i+1));
+        basketGrid.add(basketPanels[i]);
+    }
+    basketCol.add(basketGrid, BorderLayout.CENTER);
+
+    topRight.add(kioskCol);
+    topRight.add(basketCol);
+
+    // Bottom-right: Customer Arrive panel (replaces Activity Log)
+    JPanel arrivePanel = new JPanel(new BorderLayout());
+    arrivePanel.setBackground(bg);
+    arrivePanel.setBorder(compoundBorder("Customer Arrive"));
+
+    customerArrivePanel = new CustomerArrivePanel();
+    JScrollPane sp = new JScrollPane(customerArrivePanel);
+    sp.setBorder(null);
+    sp.setBackground(bg);
+    arrivePanel.add(sp, BorderLayout.CENTER);
+
+    right.add(topRight);
+    right.add(arrivePanel);
+    return right;
+}
+
+private class CustomerArrivePanel extends JPanel {
+    private BufferedImage iconCustomer = null;
+    private BufferedImage iconFailed   = null;
+    private BufferedImage iconProcess  = null;
+
+    public CustomerArrivePanel() {
+        try {
+            iconCustomer = ImageIO.read(
+                SmartLaundrySimulation.class.getResource("icon_customer.png"));
+        } catch (Exception e) { System.out.println("icon_customer.png not found"); }
+        try {
+            iconFailed = ImageIO.read(
+                SmartLaundrySimulation.class.getResource("icon_failled.png"));
+        } catch (Exception e) { System.out.println("icon_failled.png not found"); }
+        try {
+            iconProcess = ImageIO.read(
+                SmartLaundrySimulation.class.getResource("icon_processCustomer.png"));
+        } catch (Exception e) { System.out.println("icon_processCustomer.png not found"); }
+
+        setOpaque(true);
+        setBackground(new Color(218, 212, 228));
+    }
+
+    @Override
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        Graphics2D g2 = (Graphics2D) g;
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                            RenderingHints.VALUE_ANTIALIAS_ON);
+        g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+                            RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+
+        // CONCURRENT CONCEPT: synchronized read of shared list (Week 5)
+        // Must hold list lock during iteration to prevent ConcurrentModificationException
+        // from arrival thread adding customers or cancelSim() clearing the list
+        List<int[]> snapshot = new ArrayList<>();
+        synchronized (SmartLaundrySimulation.customers) {
+            for (CustomerThread c : SmartLaundrySimulation.customers) {
+                snapshot.add(new int[]{ c.id, c.CustomerState.ordinal() });
+            }
+        }
+
+        if (snapshot.isEmpty()) {
+            g2.setFont(new Font("Times New Roman", Font.ITALIC, 11));
+            g2.setColor(new Color(120, 110, 140));
+            g2.drawString("Waiting for customers...", 10, getHeight() / 2 + 4);
+            return;
+        }
+
+        int iconSize = 44, gap = 6;
+        int perRow   = Math.max(1, (getWidth() - 10) / (iconSize + gap));
+
+        int col = 0, row = 0;
+        for (int[] entry : snapshot) {
+            int id       = entry[0];
+            int stateOrd = entry[1];
+
+            // CONCURRENT CONCEPT: volatile read (Week 3 / JMM)
+            // CustomerState is volatile in CustomerThread
+            // EDT always reads the latest value written by the customer thread
+            boolean done = (stateOrd == CustomerState.DONE.ordinal() ||
+                            stateOrd == CustomerState.LEFT.ordinal());
+            boolean failed = (stateOrd == CustomerState.FAILED.ordinal());
+            boolean inProcess = (stateOrd == CustomerState.BASKET.ordinal()  ||
+                                 stateOrd == CustomerState.WASHING.ordinal() ||
+                                 stateOrd == CustomerState.DRYING.ordinal()  ||
+                                 stateOrd == CustomerState.PAYMENT.ordinal());
+
+            // DONE or LEFT — remove icon from panel
+            if (done) continue;
+
+            int px = 6 + col * (iconSize + gap);
+            int py = 6 + row * (iconSize + gap + 14);
+
+            // Pick icon based on state
+            BufferedImage icon;
+            if (failed)         icon = iconFailed;   // 10% machine/kiosk fail
+            else if (inProcess) icon = iconProcess;  // using basket/washer/dryer/kiosk
+            else                icon = iconCustomer; // just arrived
+
+            if (icon != null) {
+                g2.drawImage(icon, px, py, iconSize, iconSize, this);
+            } else {
+                // Fallback circle if image file missing
+                g2.setColor(failed ? new Color(252, 8, 73) :
+                            inProcess ? new Color(120, 200, 255) :
+                            new Color(255, 215, 80));
+                g2.fillOval(px, py, iconSize, iconSize);
+            }
+
+            // Customer ID label below icon
+            g2.setFont(new Font("Times New Roman", Font.BOLD, 9));
+            g2.setColor(new Color(50, 20, 80));
+            String lbl = "C-" + id;
+            FontMetrics fm = g2.getFontMetrics();
+            g2.drawString(lbl,
+                px + (iconSize - fm.stringWidth(lbl)) / 2,
+                py + iconSize + 11);
+
+            col++;
+            if (col >= perRow) { col = 0; row++; }
+        }
+
+        // Adjust height so JScrollPane scrolls correctly
+        int rows   = (int) Math.ceil((double) snapshot.size() / perRow);
+        int needed = rows * (iconSize + gap + 14) + 12;
+        if (getPreferredSize().height != needed) {
+            setPreferredSize(new Dimension(getWidth(), needed));
+            revalidate();
+        }
+    }
+}
 
     // Progress bar helpers
     private JProgressBar makePB(String label, int max) {
@@ -498,6 +614,10 @@ public class SmartLaundrySimulation extends JFrame {
             btnStop .setEnabled(false);
             btnCancel.setEnabled(false);
             lblProgress.setText("0/50");
+            pbTotalLeft.setValue(0);
+            pbTotalLeft.setString("/" + TOTAL_CUSTOMERS);
+            pbTotalDone.setValue(0);
+            pbTotalDone.setString( "/" + TOTAL_CUSTOMERS);
             lblTitle.setText("Smart Laundry Facility Simulation");
             logArea.setText("");
             updateAllPanels();
@@ -537,6 +657,7 @@ public class SmartLaundrySimulation extends JFrame {
     }
 
     private void hardReset() {
+        simStartTime = System.currentTimeMillis();
         statsLock.lock();
         try { statDone = 0; statLeft = 0; statTotalMs = 0; }
         finally { statsLock.unlock(); }
@@ -557,14 +678,14 @@ public class SmartLaundrySimulation extends JFrame {
 
     private void refreshBtn() {
         // Drain log queue into text area
-        List<String> msgs = new ArrayList<>();
-        logQueue.drainTo(msgs, 50);
-        if (!msgs.isEmpty()) {
-            StringBuilder sb = new StringBuilder();
-            for (String m : msgs) sb.append(m).append("\n");
-            logArea.append(sb.toString());
-            logArea.setCaretPosition(logArea.getDocument().getLength());
-        }
+//        List<String> msgs = new ArrayList<>();
+//        logQueue.drainTo(msgs, 50);
+//        if (!msgs.isEmpty()) {
+//            StringBuilder sb = new StringBuilder();
+//            for (String m : msgs) sb.append(m).append("\n");
+//            logArea.append(sb.toString());
+//            logArea.setCaretPosition(logArea.getDocument().getLength());
+//        }
 
         // Update all machine icon panels
         updateAllPanels();
@@ -582,12 +703,15 @@ public class SmartLaundrySimulation extends JFrame {
         // Customer counter
         statsLock.lock();
         int done, left; long ms;
-        try { done = statDone; left = statLeft; ms = statTotalMs; }
+        try { 
+            done = statDone; left = statLeft; ms = statTotalMs; 
+        }
         finally { statsLock.unlock(); }
         lblProgress.setText((done + left) + "/50");
 
         // Customer dot grid
         dotPanel.repaint();
+        if (customerArrivePanel != null) customerArrivePanel.repaint();
 
         // Final stats
         if (running && (done + left) >= TOTAL_CUSTOMERS) {
@@ -626,14 +750,23 @@ public class SmartLaundrySimulation extends JFrame {
         log(String.format("⏱  Avg time/cust  : %.2f s", avg));
         log("📈 Peak Washers    : " + peakWashers.get() + " / " + NUM_WASHERS);
         log("📈 Peak Dryers     : " + peakDryers.get()  + " / " + NUM_DRYERS);
+        log(String.format(" Total Simulation Duration Time  : %.1f s", 
+            (System.currentTimeMillis() - simStartTime) / 1000.0));
     }
-
+    
+    //for the start time and duration time used
+    private static long simStartTime = 0;
     // Thread-safe log to activity area
-    public static void log(String msg) {
-        long sec = (System.currentTimeMillis() % 100_000);
-        String format = String.format("[%5.1fs] %s", sec / 1000.0, msg);
+    public static void log (String msg) {
+        long elapsed = System.currentTimeMillis() - simStartTime;
+        String format = String.format ( "[%5.1fs] %s", elapsed / 1000.0 , msg);
         logQueue.offer(format);
         System.out.println(format);
+//        private static long simStartTime = 0;
+//        long sec = (System.currentTimeMillis() % 100_000);
+//        String format = String.format("[%5.1fs] %s", sec / 1000.0, msg);
+//        logQueue.offer(format);
+//        System.out.println(format);
     }
 
     // Beep on payment complete 

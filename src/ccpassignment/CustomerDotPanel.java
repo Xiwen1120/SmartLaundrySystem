@@ -13,13 +13,13 @@ import java.util.List;
 // Renders 50 customer dots in a compact grid, each coloured
 // by the customer's current state.
 // Colours match the legend in the lecturer's example video:
-// • Grey    = Arrived
-// • Yellow  = Basket
-// • Blue    = Washing
-// • Orange  = Drying
-// • Purple  = Payment
-// • Green   = Done
-// • Red     = Left (impatient)
+// • Grey = Arrived
+// • Yellow = Basket
+// • Blue = Washing
+// • Orange = Drying
+// • Purple = Payment
+// • Green = Done
+// • Red = Left (impatient)
 public class CustomerDotPanel extends JPanel {
 
     // State → colour mapping
