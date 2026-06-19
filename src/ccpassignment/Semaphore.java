@@ -3,7 +3,6 @@ package ccpassignment;
  *
  * @author Xenia Thor
  */
-
 // Semaphore.java — YOUR OWN CUSTOM API
 // Built from scratch using LECTURER'S EXACT code (Week 7, Slide 14).
 // This IS the custom API your lecturer wants — NOT java.util.concurrent.
@@ -83,17 +82,13 @@ public class Semaphore {
         --value;
     }
 
-    /**
-     * TRY DOWN with timeout — our extension for customer patience.
-     * Not in lecturer's slide — added for Liveness (Week 9/10).
-     * If no permit within timeoutMs → return false (customer leaves).
-     *
-     * Also used by NestedMonitor.java when it calls this semaphore
-     * from inside its own synchronized method — creating a nested monitor.
-     *
-     * @param timeoutMs max ms to wait
-     * @return true = got permit, false = timed out
-     */
+// TRY DOWN with timeout — our extension for customer patience.
+// Not in lecturer's slide — added for Liveness (Week 9/10).
+// If no permit within timeoutMs → return false (customer leaves).
+// Also used by NestedMonitor.java when it calls this semaphore
+// from inside its own synchronized method — creating a nested monitor.
+// @param timeoutMs max ms to wait
+// @return true = got permit, false = timed out
     public synchronized boolean tryDown(long timeoutMs)
             throws InterruptedException {
         long deadline = System.currentTimeMillis() + timeoutMs;
@@ -121,6 +116,23 @@ public class Semaphore {
     // waiting count
     public synchronized int getWaitingCount() {
         return waitingCount;
+    }
+    
+    public synchronized void reset (int capacity) {
+        this.value = capacity;
+        this.waitingCount = 0;
+        notifyAll();
+    }
+    
+    //return true if no permits are taken
+    public synchronized boolean full (int capacity) {
+        return value == capacity;
+    }
+    
+    @Override
+    //prints semaphore state to output
+    public synchronized String toString() {
+        return "Semaphore [permits = " + value + ", waiting = " + waitingCount + "]";
     }
     
     

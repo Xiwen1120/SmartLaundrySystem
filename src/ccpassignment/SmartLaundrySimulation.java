@@ -3,12 +3,11 @@ package ccpassignment;
 import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
-import java.awt.event.*;
+//import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.util.*;
 import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
-//import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
 import java.util.concurrent.locks.*;
 import javax.imageio.ImageIO;
@@ -101,12 +100,6 @@ public class SmartLaundrySimulation extends JFrame {
 
     // GUI design
     // Status bars
-    private JProgressBar progresBarWasher, progressBarDryer, pbKiosk, pbBasket, pbTotalLeft, pbTotalDone;
-    // Machine icon panels
-    private MachineIconPanel[] washerPanels = new MachineIconPanel[NUM_WASHERS];
-    private MachineIconPanel[] dryerPanels  = new MachineIconPanel[NUM_DRYERS];
-    private MachineIconPanel[] kioskPanels  = new MachineIconPanel[NUM_KIOSKS];
-    private MachineIconPanel[] basketPanels = new MachineIconPanel[NUM_BASKETS];
     private JTextArea logArea;
     private CustomerDotPanel dotPanel;
     private CustomerArrivePanel customerArrivePanel; 
@@ -114,15 +107,20 @@ public class SmartLaundrySimulation extends JFrame {
     private JButton  btnStart, btnStop, btnReset, btnCancel;
     private JLabel lblTitle;
     
+    private JProgressBar progresBarWasher, progressBarDryer, pbKiosk, pbBasket, pbTotalLeft, pbTotalDone;
+    // Machine icon panels
+    private MachineIconPanel[] washerPanels = new MachineIconPanel[NUM_WASHERS];
+    private MachineIconPanel[] dryerPanels  = new MachineIconPanel[NUM_DRYERS];
+    private MachineIconPanel[] kioskPanels  = new MachineIconPanel[NUM_KIOSKS];
+    private MachineIconPanel[] basketPanels = new MachineIconPanel[NUM_BASKETS];
+
     
     
     public SmartLaundrySimulation() {
         super("Smart Laundry Facility Simulation");
         setDefaultCloseOperation(EXIT_ON_CLOSE);
-//        setSize(1340, 900);
-//        setMinimumSize(new Dimension(1200, 800));
         Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
-        int width  = (int)(screen.width  * 0.95);
+        int width = (int)(screen.width  * 0.95);
         int height = (int)(screen.height * 0.95);
         setSize(width, height);
         setMinimumSize(new Dimension(1000, 700));
