@@ -19,9 +19,9 @@ public class CustomerThread extends Thread {
 
     //unique customerID
     public final int id;
-    private final long  startMs;
-    private final long  patienceMs;    // total patience window (30-55 s)
-    private long  totalWaitMs;   // accumulated wait time
+    private final long startMs;
+    private final long patienceMs;    // total patience window (30-55 s)
+    private long totalWaitMs;   // accumulated wait time
     private final Random rng = new Random();
 
     public CustomerThread(int id) {
@@ -29,8 +29,8 @@ public class CustomerThread extends Thread {
         setDaemon(true);
         this.id = id;
         this.startMs = System.currentTimeMillis();
-        //
-        int patienceSeconds = 60 + rng.nextInt(41);
+        //wash=4-6s,dry=3-5s,pay=1-2s
+        int patienceSeconds = 20 + rng.nextInt(21);
         this.patienceMs = patienceSeconds*1000L;
         
         //customer arrive message (print out in gui and output)
@@ -63,7 +63,7 @@ public class CustomerThread extends Thread {
         // Return basket before payment (rank drops from 3 back to none)
         releaseBasket(basketSlot);
         SmartLaundrySimulation.log(
-             "Customer  " + id + " returned basket");
+            "Customer  " + id + " have return the basket");
 
         // STEP 4 — Payment Kiosk (rank 4)
         boolean paid = doPayment();
@@ -79,7 +79,7 @@ public class CustomerThread extends Thread {
         } finally { SmartLaundrySimulation.statsLock.unlock(); }
         
         SmartLaundrySimulation.log(
-            "✅ Customer " + id + " DONE  total=" + (elapsed/1000) + "s");
+            "Customer " + id + " DONE  total=" + (elapsed/1000) + "s");
     }
 
 //STEP 1: BASKET

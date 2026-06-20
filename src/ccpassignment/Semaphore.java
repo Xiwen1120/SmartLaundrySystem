@@ -61,12 +61,6 @@ public class Semaphore {
         notifyAll(); // wake ALL threads blocked in down()/tryDown()
     }
 
-
-//DOWN — acquire one permit. Block if none available.
-//Lecturer's slide: "down(s): when s>0 decrement; else block"
-//while loop (not if) — Week 6 monitor pattern:
-//After wait() returns, another thread may have taken the permit.
-//Must re-check condition before proceeding.
 //DOWN — acquire one permit. Block if none available.
 //Lecturer's slide: "down(s): when s>0 decrement; else block"
 //while loop (not if) — Week 6 monitor pattern:
@@ -106,9 +100,7 @@ public class Semaphore {
         return true; //permit acquired successfully
     }
 
-// Available permits — used by GUI progress bars.
-// e.g. NUM_KIOSKS - semKiosk.availablePermits() = kiosks in use
-// Called from SmartLaundrySimulation.refreshBtn()
+
     public synchronized int availablePermits() {
         return value;
     }

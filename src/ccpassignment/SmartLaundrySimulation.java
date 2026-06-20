@@ -3,6 +3,8 @@ package ccpassignment;
 import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 //import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.util.*;
@@ -31,10 +33,10 @@ public class SmartLaundrySimulation extends JFrame {
 
     //Semaphores — Mechanism 1
     //fair=true → FIFO ordering, no starvation
-    public static final Semaphore semWasher = new Semaphore(NUM_WASHERS,  true);
-    public static final Semaphore semDryer  = new Semaphore(NUM_DRYERS,   true);
-    public static final Semaphore semKiosk  = new Semaphore(NUM_KIOSKS,   true);
-    public static final Semaphore semBasket = new Semaphore(NUM_BASKETS,  true);
+    public static final Semaphore semWasher = new Semaphore(NUM_WASHERS, true);
+    public static final Semaphore semDryer  = new Semaphore(NUM_DRYERS, true);
+    public static final Semaphore semKiosk  = new Semaphore(NUM_KIOSKS, true);
+    public static final Semaphore semBasket = new Semaphore(NUM_BASKETS, true);
     public static final NestedMonitor paymentMonitor = new NestedMonitor (semKiosk);
     
 //  public static final NestedMonitor paymentMonitor = new NestedMonitor (semKiosk);
@@ -43,19 +45,19 @@ public class SmartLaundrySimulation extends JFrame {
     //reentrantLock = guard share statistics
     //condition = for allow wait/signal
     public static final ReentrantLock statsLock  = new ReentrantLock();
-    public static final Condition     ownerAlert = statsLock.newCondition();
+    public static final Condition ownerAlert = statsLock.newCondition();
     public static int  statDone = 0;
     public static int  statLeft = 0;
     public static long statTotalMs = 0;
 
     // AtomicInteger counters — Mechanism 3 
     public static final AtomicInteger activeWashers = new AtomicInteger(0);
-    public static final AtomicInteger activeDryers  = new AtomicInteger(0);
-    public static final AtomicInteger peakWashers   = new AtomicInteger(0);
-    public static final AtomicInteger peakDryers    = new AtomicInteger(0);
-    public static final AtomicInteger payQueueSize  = new AtomicInteger(0);
-    public static final AtomicInteger arrivedCount  = new AtomicInteger(0);
-    public static final AtomicInteger doneCount     = new AtomicInteger(0);
+    public static final AtomicInteger activeDryers = new AtomicInteger(0);
+    public static final AtomicInteger peakWashers = new AtomicInteger(0);
+    public static final AtomicInteger peakDryers = new AtomicInteger(0);
+    public static final AtomicInteger payQueueSize = new AtomicInteger(0);
+    public static final AtomicInteger arrivedCount = new AtomicInteger(0);
+    public static final AtomicInteger doneCount = new AtomicInteger(0);
     
     public static void updateMax (AtomicInteger atom, int newVal){
         int cur;
@@ -100,11 +102,10 @@ public class SmartLaundrySimulation extends JFrame {
 
     // GUI design
     // Status bars
-    private JTextArea logArea;
     private CustomerDotPanel dotPanel;
     private CustomerArrivePanel customerArrivePanel; 
-    private JLabel   lblProgress;
-    private JButton  btnStart, btnStop, btnReset, btnCancel;
+    private JLabel lblProgress;
+    private colorBtn btnStart, btnStop, btnReset, btnCancel;
     private JLabel lblTitle;
     
     private JProgressBar progresBarWasher, progressBarDryer, pbKiosk, pbBasket, pbTotalLeft, pbTotalDone;
@@ -132,7 +133,6 @@ public class SmartLaundrySimulation extends JFrame {
 
     private void buildUI() {
         Color purple = new Color(157, 12, 247);
-//        Color lightPurple = new Color(140, 90, 190);
         Color bgGreyPurple = new Color(52, 7, 79);
         Color panelGrey  = new Color(210, 205, 220);
 
@@ -150,11 +150,6 @@ public class SmartLaundrySimulation extends JFrame {
         lblTitle.setHorizontalAlignment(JLabel.CENTER);
         topBar.add(lblTitle, BorderLayout.CENTER);
 
-        JLabel lblName = new JLabel("XIWEN  TP076431");
-        lblName.setFont(new Font("Times New Roman", Font.BOLD, 14));
-        lblName.setForeground(Color.WHITE);
-        topBar.add(lblName, BorderLayout.EAST);
-
         add(topBar, BorderLayout.NORTH);
 
         // STATUS BAR
@@ -167,7 +162,7 @@ public class SmartLaundrySimulation extends JFrame {
         JPanel statusContent = new JPanel(new BorderLayout(0, 2));
         statusContent.setBackground(purple);
         statusContent.add(lblStatus, BorderLayout.NORTH);
-        JPanel pbRow = new JPanel(new GridLayout(1, 4, 8, 0));
+        JPanel pbRow = new JPanel(new GridLayout(1, 6, 8, 0));
         pbRow.setBackground(purple);
         progresBarWasher = makePB("Waching Machine", 6);
         progressBarDryer  = makePB("Dryer", 4);
@@ -204,7 +199,7 @@ public class SmartLaundrySimulation extends JFrame {
         JPanel centerRight = new JPanel(new GridLayout(1, 3, 6, 0));
         centerRight.setBackground(bgGreyPurple);
 
-        JPanel dryerCol  = buildDryerColumn(panelGrey);
+        JPanel dryerCol = buildDryerColumn(panelGrey);
         JPanel rightCols = buildRightSection(panelGrey);
 
         centerRight.add(dryerCol);
@@ -246,16 +241,67 @@ public class SmartLaundrySimulation extends JFrame {
         lblProgress.setBackground(new Color(80, 80, 100));
         lblProgress.setBorder(BorderFactory.createLineBorder(Color.WHITE, 1));
 
-        btnStart = styledBtn("Start", new Color(34, 197, 94));
-        btnStop  = styledBtn("Stop",  new Color(239, 68, 68));
-        btnReset = styledBtn("Reset", new Color(234, 179, 8));
-        btnCancel = styledBtn("Cancel", new Color (6, 182, 212));
+        btnStart  = new colorBtn("Start",  new Color(34, 197, 94));   // solid green
+        btnStop   = new colorBtn("Stop",   new Color(239, 68, 68));   // solid red
+        btnReset  = new colorBtn("Reset",  new Color(234, 179, 8));   // solid yellow
+        btnCancel = new colorBtn("Cancel", new Color(6, 182, 212));   // solid cyan
         btnStop.setEnabled(false);
-
-        btnStart.addActionListener(e -> startSim());
-        btnStop .addActionListener(e -> stopSim());
-        btnReset.addActionListener(e -> resetSim());
-        btnCancel.addActionListener(e -> cancelSim());
+//        btnStart. setBackground (new Color(34, 197, 94));
+//        btnStart.setForeground (Color.WHITE);
+//        btnStart.setFont(new Font ("Times New Roman" , Font.BOLD,14));
+//        btnStart.setBorder (BorderFactory.createCompoundBorder(
+//            BorderFactory.createLineBorder(Color.WHITE,2),
+//            BorderFactory.createEmptyBorder(6,20,6,20)));
+//        
+//        btnStop = new JButton("Stop");
+//        btnStop.setBackground(new Color (239,68,68));
+//        btnStop.setForeground(Color.WHITE);
+//        btnStop.setFont(new Font("Times New ROman", Font.BOLD, 14));
+//        btnStop.setBorder(BorderFactory.createCompoundBorder(
+//            BorderFactory.createLineBorder(Color.WHITE,2),
+//            BorderFactory.createEmptyBorder(6,20,6,20)));
+//        btnStop.setEnabled(false);
+//        
+//        btnReset = new JButton("Reset");
+//        btnReset.setBackground(new Color(234, 179, 8));
+//        btnReset.setForeground(Color.WHITE);
+//        btnReset.setFont(new Font("Times New Roman", Font.BOLD, 14));
+//        btnReset.setBorder(BorderFactory.createCompoundBorder(
+//            BorderFactory.createLineBorder(Color.WHITE, 2),
+//            BorderFactory.createEmptyBorder(6, 20, 6, 20)));
+//
+//        btnCancel = new JButton("Cancel");
+//        btnCancel.setBackground(new Color(6, 182, 212));
+//        btnCancel.setForeground(Color.WHITE);
+//        btnCancel.setFont(new Font("Times New Roman", Font.BOLD, 14));
+//        btnCancel.setBorder(BorderFactory.createCompoundBorder(
+//            BorderFactory.createLineBorder(Color.WHITE, 2),
+//            BorderFactory.createEmptyBorder(6, 20, 6, 20)));
+//        
+        btnStart.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                startSim();
+            }
+        });
+        btnStop.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                stopSim();
+            }
+        });
+        btnReset.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                resetSim();
+            }
+        });
+        btnCancel.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                cancelSim();
+            }
+        });
 
         controlBar.add(lblProgress);
         controlBar.add(btnStart);
@@ -277,13 +323,14 @@ public class SmartLaundrySimulation extends JFrame {
             setOpaque (false);
         } 
         
-        @Override
+       @Override
         protected void paintComponent (Graphics g) {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g2.setColor(getBackground());
             g2.fillRoundRect(0, 0, getWidth(), getHeight(), radius, radius);
             g2.dispose();
+            super.paintComponent(g);
         }
     }
   
@@ -427,7 +474,7 @@ private class CustomerArrivePanel extends JPanel {
             return;
         }
 
-        int iconSize = 44, gap = 6;
+        int iconSize = 42, gap = 6;
         int perRow   = Math.max(1, (getWidth() - 10) / (iconSize + gap));
 
         int col = 0, row = 0;
@@ -525,17 +572,34 @@ private class CustomerArrivePanel extends JPanel {
     }
 
     // Button helper
-    private JButton styledBtn(String txt, Color bg) {
-        JButton b = new JButton(txt);
-        b.setFont(new Font("Times New Roman", Font.BOLD, 14));
-        b.setBackground(bg);
-        b.setForeground(Color.WHITE);
-        b.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(Color.WHITE, 1),
-            BorderFactory.createEmptyBorder(6, 20, 6, 20)));
-        b.setFocusPainted(false);
-        return b;
+    private static class colorBtn extends JButton {
+        private final Color baseColor;
+        
+        colorBtn (String text, Color baseColor) {
+            super(text);
+            this.baseColor = baseColor;
+            setContentAreaFilled(false);
+            setFocusPainted(false);
+            setBorderPainted(false);
+            setOpaque(false);
+            setForeground(Color.WHITE);
+            setFont(new Font("Times New Roman", Font.BOLD, 14));
+            setBorder(BorderFactory.createEmptyBorder(8, 24, 8, 24));
+        }
+        
+        @Override
+        protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            Graphics2D g2 = (Graphics2D) g;
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+            g2.setColor(baseColor);
+            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+            g2.dispose();
+            super.paintComponent(g);
+        }
     }
+    
 
     private Font loadFont(String name, int style, int size) {
         return new Font(name, style, size);
@@ -596,32 +660,40 @@ private class CustomerArrivePanel extends JPanel {
         bonus.start();
     }
 
+    //using volatile
     private void stopSim() {
         running = false;
-        btnStop .setEnabled(false);
+//        
+//        statsLock.lock();
+//        try {
+//            ownerAlert.signalAll();
+//        } finally{
+//            statsLock.unlock();
+//        }
+//        synchronized (customers) {
+//            for (int i = 0; i<customers.size();i++) {
+//                CustomerThread c = customers.get(i);
+//                if (c.isAlive()) {
+//                    c.interrupt();
+//                }
+//            }
+//        }
+        btnStop.setEnabled(false);
         btnStart.setEnabled(true);
-        btnCancel.setEnabled(false);
         log("Simulation stopped by user.");
     }
 
     private void resetSim() {
         running = false;
+        for (int i=0;i<customers.size();i++) {
+            CustomerThread c = customers.get(i);
+            if (c.isAlive()){
+                c.interrupt();
+            }
+        }
         hardReset();
-        SwingUtilities.invokeLater(() -> {
-            btnStart.setEnabled(true);
-            btnStop .setEnabled(false);
-            btnCancel.setEnabled(false);
-            lblProgress.setText("0/50");
-            pbTotalLeft.setValue(0);
-            pbTotalLeft.setString("/" + TOTAL_CUSTOMERS);
-            pbTotalDone.setValue(0);
-            pbTotalDone.setString( "/" + TOTAL_CUSTOMERS);
-            lblTitle.setText("Smart Laundry Facility Simulation");
-            logArea.setText("");
-            updateAllPanels();
-            dotPanel.repaint();
-        });
-    }
+        startSim();
+}
     
     private void cancelSim(){
         //using volatile (for stop arrival loop)
@@ -659,16 +731,23 @@ private class CustomerArrivePanel extends JPanel {
         statsLock.lock();
         try { statDone = 0; statLeft = 0; statTotalMs = 0; }
         finally { statsLock.unlock(); }
-        activeWashers.set(0); activeDryers.set(0);
-        peakWashers  .set(0); peakDryers  .set(0);
-        payQueueSize .set(0); arrivedCount.set(0);
-        doneCount    .set(0);
+        semWasher.reset(NUM_WASHERS);
+        semDryer.reset(NUM_DRYERS);
+        semKiosk.reset(NUM_KIOSKS);
+        semBasket.reset(NUM_BASKETS);
+        activeWashers.set(0); 
+        activeDryers.set(0);
+        peakWashers.set(0); 
+        peakDryers.set(0);
+        payQueueSize.set(0); 
+        arrivedCount.set(0);
+        doneCount.set(0);
         paymentDown = false;  ownerCalled = false;
         synchronized (machineLock) {
-            Arrays.fill(washerBusy,  false); Arrays.fill(washerOwner, 0);
-            Arrays.fill(dryerBusy,   false); Arrays.fill(dryerOwner,  0);
-            Arrays.fill(basketBusy,  false); Arrays.fill(basketOwner, 0);
-            Arrays.fill(kioskBusy,   false); Arrays.fill(kioskOwner,  0);
+            Arrays.fill(washerBusy, false); Arrays.fill(washerOwner, 0);
+            Arrays.fill(dryerBusy, false); Arrays.fill(dryerOwner,  0);
+            Arrays.fill(basketBusy, false); Arrays.fill(basketOwner, 0);
+            Arrays.fill(kioskBusy, false); Arrays.fill(kioskOwner,  0);
         }
         logQueue.clear();
         customers.clear();
@@ -676,15 +755,6 @@ private class CustomerArrivePanel extends JPanel {
 
     private void refreshBtn() {
         // Drain log queue into text area
-//        List<String> msgs = new ArrayList<>();
-//        logQueue.drainTo(msgs, 50);
-//        if (!msgs.isEmpty()) {
-//            StringBuilder sb = new StringBuilder();
-//            for (String m : msgs) sb.append(m).append("\n");
-//            logArea.append(sb.toString());
-//            logArea.setCaretPosition(logArea.getDocument().getLength());
-//        }
-
         // Update all machine icon panels
         updateAllPanels();
 
@@ -760,11 +830,6 @@ private class CustomerArrivePanel extends JPanel {
         String format = String.format ( "[%5.1fs] %s", elapsed / 1000.0 , msg);
         logQueue.offer(format);
         System.out.println(format);
-//        private static long simStartTime = 0;
-//        long sec = (System.currentTimeMillis() % 100_000);
-//        String format = String.format("[%5.1fs] %s", sec / 1000.0, msg);
-//        logQueue.offer(format);
-//        System.out.println(format);
     }
 
     // Beep on payment complete 
@@ -797,11 +862,17 @@ private class CustomerArrivePanel extends JPanel {
     }
 
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            try { UIManager.setLookAndFeel(
-                    UIManager.getSystemLookAndFeelClassName()); }
-            catch (Exception ignored) {}
+    // Runnable is an interface with one method: run()
+    // We use it here to safely start the GUI on the correct thread
+    final Runnable startGUI = new Runnable() {
+        public void run() {
+            try { 
+                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); 
+            } catch (Exception ignored) {}
             new SmartLaundrySimulation().setVisible(true);
-        });
+        }
+    };
+    // SwingUtilities.invokeLater() makes sure the window opens on the GUI thread
+    SwingUtilities.invokeLater(startGUI);
     }
 }
