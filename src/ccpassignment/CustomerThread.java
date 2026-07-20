@@ -15,13 +15,13 @@ public class CustomerThread extends Thread {
 
     // Customer visible state
     public volatile SmartLaundrySimulation.CustomerState CustomerState =
-            SmartLaundrySimulation.CustomerState.ARRIVED;
+        SmartLaundrySimulation.CustomerState.ARRIVED;
 
     //unique customerID
     public final int id;
     private final long startMs;
-    private final long patienceMs;    // total patience window (30-55 s)
-    private long totalWaitMs;   // accumulated wait time
+    private final long patienceMs; // total patience window (30-55 s)
+    private long totalWaitMs; // accumulated wait time
     private final Random rng = new Random();
 
     public CustomerThread(int id) {
@@ -29,8 +29,8 @@ public class CustomerThread extends Thread {
         setDaemon(true);
         this.id = id;
         this.startMs = System.currentTimeMillis();
-        //wash=4-6s,dry=3-5s,pay=1-2s
-        int patienceSeconds = 20 + rng.nextInt(21);
+        //wash= 4-6s  dry= 3-5s  pay= 1-2s
+        int patienceSeconds = rng.nextInt(21)+20;
         this.patienceMs = patienceSeconds*1000L;
         
         //customer arrive message (print out in gui and output)
@@ -38,12 +38,13 @@ public class CustomerThread extends Thread {
         "Customer " + id + " ARIVED (patience = " + patienceSeconds + "s)");
     }
 
-    //  MAIN PIPELINE (deadline concept)
+    //  MAIN (using deadline concept)
     @Override
     public void run() {
         // STEP 1 — Basket (rank 1)
         int basketSlot = acquireBasket();
-        if (basketSlot < 0) return;  // left without getting basket
+        if (basketSlot < 0) 
+            return;  // left without getting basket
 
         // STEP 2 — Washer (rank 2)
         boolean washed = doWashing();
@@ -72,6 +73,7 @@ public class CustomerThread extends Thread {
         // DONE 
         CustomerState = SmartLaundrySimulation.CustomerState.DONE;
         long elapsed = System.currentTimeMillis() - startMs;
+        //mechanism 3 - AtomicInteger: lock-free increment
         SmartLaundrySimulation.statsLock.lock();
         try {
             SmartLaundrySimulation.statDone++;
@@ -109,7 +111,7 @@ public class CustomerThread extends Thread {
         totalWaitMs += System.currentTimeMillis() - t0;
  
         if (!ok) {
-            // Waited too long for basket → leave
+            // Waited too long for basket and leave
             tiredOfWaiting("waited too long for basket");
             return -1;
         }
@@ -145,7 +147,8 @@ public class CustomerThread extends Thread {
                 return false;
             }
  
-            SmartLaundrySimulation.log(
+            SmartLaundrySimulation.log
+            (
                 "Customer " + id +
                 " waiting for washer (attempt " + attempt + ")...");
             long t0 = System.currentTimeMillis();
@@ -452,7 +455,7 @@ public class CustomerThread extends Thread {
         }
     }
  
-    /** Remaining patience in milliseconds */
+    //Remaining patience in milliseconds
     private long remaining() {
         return (startMs + patienceMs) - System.currentTimeMillis();
     }

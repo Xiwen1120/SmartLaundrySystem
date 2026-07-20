@@ -40,7 +40,6 @@ public class SmartLaundrySimulation extends JFrame {
     public static final NestedMonitor paymentMonitor = new NestedMonitor (semKiosk);
     
 //  public static final NestedMonitor paymentMonitor = new NestedMonitor (semKiosk);
-
     //ReentrantLock + Condition — Mechanism 2
     //reentrantLock = guard share statistics
     //condition = for allow wait/signal
@@ -115,8 +114,7 @@ public class SmartLaundrySimulation extends JFrame {
     private MachineIconPanel[] kioskPanels  = new MachineIconPanel[NUM_KIOSKS];
     private MachineIconPanel[] basketPanels = new MachineIconPanel[NUM_BASKETS];
 
-    
-    
+
     public SmartLaundrySimulation() {
         super("Smart Laundry Facility Simulation");
         setDefaultCloseOperation(EXIT_ON_CLOSE);
@@ -245,39 +243,7 @@ public class SmartLaundrySimulation extends JFrame {
         btnStop   = new colorBtn("Stop",   new Color(239, 68, 68));   // solid red
         btnReset  = new colorBtn("Reset",  new Color(234, 179, 8));   // solid yellow
         btnCancel = new colorBtn("Cancel", new Color(6, 182, 212));   // solid cyan
-        btnStop.setEnabled(false);
-//        btnStart. setBackground (new Color(34, 197, 94));
-//        btnStart.setForeground (Color.WHITE);
-//        btnStart.setFont(new Font ("Times New Roman" , Font.BOLD,14));
-//        btnStart.setBorder (BorderFactory.createCompoundBorder(
-//            BorderFactory.createLineBorder(Color.WHITE,2),
-//            BorderFactory.createEmptyBorder(6,20,6,20)));
-//        
-//        btnStop = new JButton("Stop");
-//        btnStop.setBackground(new Color (239,68,68));
-//        btnStop.setForeground(Color.WHITE);
-//        btnStop.setFont(new Font("Times New ROman", Font.BOLD, 14));
-//        btnStop.setBorder(BorderFactory.createCompoundBorder(
-//            BorderFactory.createLineBorder(Color.WHITE,2),
-//            BorderFactory.createEmptyBorder(6,20,6,20)));
-//        btnStop.setEnabled(false);
-//        
-//        btnReset = new JButton("Reset");
-//        btnReset.setBackground(new Color(234, 179, 8));
-//        btnReset.setForeground(Color.WHITE);
-//        btnReset.setFont(new Font("Times New Roman", Font.BOLD, 14));
-//        btnReset.setBorder(BorderFactory.createCompoundBorder(
-//            BorderFactory.createLineBorder(Color.WHITE, 2),
-//            BorderFactory.createEmptyBorder(6, 20, 6, 20)));
-//
-//        btnCancel = new JButton("Cancel");
-//        btnCancel.setBackground(new Color(6, 182, 212));
-//        btnCancel.setForeground(Color.WHITE);
-//        btnCancel.setFont(new Font("Times New Roman", Font.BOLD, 14));
-//        btnCancel.setBorder(BorderFactory.createCompoundBorder(
-//            BorderFactory.createLineBorder(Color.WHITE, 2),
-//            BorderFactory.createEmptyBorder(6, 20, 6, 20)));
-//        
+        btnStop.setEnabled(false);     
         btnStart.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -325,12 +291,12 @@ public class SmartLaundrySimulation extends JFrame {
         
        @Override
         protected void paintComponent (Graphics g) {
+            super.paintComponent(g);
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g2.setColor(getBackground());
             g2.fillRoundRect(0, 0, getWidth(), getHeight(), radius, radius);
             g2.dispose();
-            super.paintComponent(g);
         }
     }
   
@@ -571,14 +537,15 @@ private class CustomerArrivePanel extends JPanel {
             new Color(50, 20, 80));
     }
 
-    // Button helper
+    // Button ui
     private static class colorBtn extends JButton {
         private final Color baseColor;
         
-        colorBtn (String text, Color baseColor) {
+        colorBtn (String text, Color color) {
             super(text);
-            this.baseColor = baseColor;
-            setContentAreaFilled(false);
+            this.baseColor = color;
+            setContentAreaFilled(true);
+            setOpaque(true);
             setFocusPainted(false);
             setBorderPainted(false);
             setOpaque(false);
@@ -588,15 +555,28 @@ private class CustomerArrivePanel extends JPanel {
         }
         
         @Override
-        protected void paintComponent(Graphics g) {
-            super.paintComponent(g);
-            Graphics2D g2 = (Graphics2D) g;
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
-            g2.setColor(baseColor);
-            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
-            g2.dispose();
-            super.paintComponent(g);
+    protected void paintComponent(Graphics g) {
+
+        Graphics2D g2 = (Graphics2D) g.create();
+
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                RenderingHints.VALUE_ANTIALIAS_ON);
+
+        // draw background
+        g2.setColor(baseColor);
+        g2.fillRoundRect(0, 0, getWidth(), getHeight(), 15, 15);
+
+        // draw text
+        FontMetrics fm = g2.getFontMetrics(getFont());
+
+        int x = (getWidth() - fm.stringWidth(getText())) / 2;
+        int y = (getHeight() - fm.getHeight()) / 2 + fm.getAscent();
+
+        g2.setColor(getForeground());
+        g2.setFont(getFont());
+        g2.drawString(getText(), x, y);
+
+        g2.dispose();
         }
     }
     
@@ -612,21 +592,28 @@ private class CustomerArrivePanel extends JPanel {
         btnCancel.setEnabled(true);
         running = true;
         hardReset();
-
-        // Arrival thread: 50 customer threads
-        Thread arrival = new Thread(() -> {
-            Random rng = new Random();
-            for (int i = 1; i <= TOTAL_CUSTOMERS && running; i++) {
-                CustomerThread c = new CustomerThread(i);
-                customers.add(c);
-                arrivedCount.incrementAndGet();
-                c.start();
-                try { Thread.sleep(rng.nextInt(3001)); } // 0-3 s
-                catch (InterruptedException ex) { break; }
+        
+        //arrival thread: 50 customer
+        Thread arrival = new Thread (new Runnable() {
+            @Override
+            public void run() {
+                Random rng = new Random ();
+                for (int i = 1; i <= TOTAL_CUSTOMERS && running; i++) {
+                    CustomerThread c = new CustomerThread (i);
+                    customers.add(c);
+                    arrivedCount.incrementAndGet();
+                    c.start();
+                    try {
+                        Thread.sleep(rng.nextInt(3001)); //0-3s
+                    } catch (InterruptedException ex) {
+                        break;
+                    }
+                }
             }
         }, "ArrivalThread");
         arrival.setDaemon(true);
         arrival.start();
+
 
         // Bonus monitor thread 
         Thread bonus = new Thread(() -> {
@@ -663,21 +650,6 @@ private class CustomerArrivePanel extends JPanel {
     //using volatile
     private void stopSim() {
         running = false;
-//        
-//        statsLock.lock();
-//        try {
-//            ownerAlert.signalAll();
-//        } finally{
-//            statsLock.unlock();
-//        }
-//        synchronized (customers) {
-//            for (int i = 0; i<customers.size();i++) {
-//                CustomerThread c = customers.get(i);
-//                if (c.isAlive()) {
-//                    c.interrupt();
-//                }
-//            }
-//        }
         btnStop.setEnabled(false);
         btnStart.setEnabled(true);
         log("Simulation stopped by user.");
@@ -770,12 +742,22 @@ private class CustomerArrivePanel extends JPanel {
 
         // Customer counter
         statsLock.lock();
-        int done, left; long ms;
+        int done, left; 
+        long ms;
         try { 
-            done = statDone; left = statLeft; ms = statTotalMs; 
-        }
-        finally { statsLock.unlock(); }
+            done = statDone; 
+            left = statLeft; 
+            ms = statTotalMs; 
+        } finally { statsLock.unlock(); }
         lblProgress.setText((done + left) + "/50");
+        
+        //update total done progress bar
+        pbTotalDone.setValue(done);
+        pbTotalDone.setString(done + "/" + TOTAL_CUSTOMERS);
+        
+        //update total left progress bar
+        pbTotalLeft.setValue(left);
+        pbTotalLeft.setString(left + "/" + TOTAL_CUSTOMERS);
 
         // Customer dot grid
         dotPanel.repaint();
@@ -812,12 +794,12 @@ private class CustomerArrivePanel extends JPanel {
 
     private void printFinalStats(int done, int left, long ms) {
         double avg = done > 0 ? (ms / (double) done) / 1000.0 : 0;
-        log("Total Customers   : " + TOTAL_CUSTOMERS);
-        log("✅ Completed       : " + done);
+        log("Total Customers: " + TOTAL_CUSTOMERS);
+        log("✅ Completed: " + done);
         log("🚶 Left (impatient): " + left);
-        log(String.format("⏱  Avg time/cust  : %.2f s", avg));
-        log("📈 Peak Washers    : " + peakWashers.get() + " / " + NUM_WASHERS);
-        log("📈 Peak Dryers     : " + peakDryers.get()  + " / " + NUM_DRYERS);
+        log(String.format("⏱  Average time/cust  : %.2f s", avg));
+        log("📈 Peak Washers: " + peakWashers.get() + " / " + NUM_WASHERS);
+        log("📈 Peak Dryers: " + peakDryers.get()  + " / " + NUM_DRYERS);
         log(String.format(" Total Simulation Duration Time  : %.1f s", 
             (System.currentTimeMillis() - simStartTime) / 1000.0));
     }

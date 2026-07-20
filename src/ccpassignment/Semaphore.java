@@ -27,7 +27,6 @@ package ccpassignment;
 // Week 9/10 — tryDown(timeout) = liveness, no starvation
 
 public class Semaphore {
-
     // private = encapsulation (only accessible via synchronized methods)
     private int value; //available permits
     private int waitingCount; //how many thread currently blocked
@@ -81,8 +80,6 @@ public class Semaphore {
 // If no permit within timeoutMs → return false (customer leaves).
 // Also used by NestedMonitor.java when it calls this semaphore
 // from inside its own synchronized method — creating a nested monitor.
-// @param timeoutMs max ms to wait
-// @return true = got permit, false = timed out
     public synchronized boolean tryDown(long timeoutMs)
             throws InterruptedException {
         long deadline = System.currentTimeMillis() + timeoutMs;
@@ -126,7 +123,4 @@ public class Semaphore {
     public synchronized String toString() {
         return "Semaphore [permits = " + value + ", waiting = " + waitingCount + "]";
     }
-    
-    
-    
 }
