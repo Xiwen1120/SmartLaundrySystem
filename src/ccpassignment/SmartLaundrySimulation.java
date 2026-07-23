@@ -5,11 +5,10 @@ import javax.swing.border.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-//import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.util.*;
 import java.util.List;
-import java.util.concurrent.LinkedBlockingQueue;
+//import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.*;
 import java.util.concurrent.locks.*;
 import javax.imageio.ImageIO;
@@ -44,7 +43,7 @@ public class SmartLaundrySimulation extends JFrame {
     //reentrantLock = guard share statistics
     //condition = for allow wait/signal
     public static final ReentrantLock statsLock  = new ReentrantLock();
-    public static final Condition ownerAlert = statsLock.newCondition();
+    //public static final Condition ownerAlert = statsLock.newCondition();
     public static int  statDone = 0;
     public static int  statLeft = 0;
     public static long statTotalMs = 0;
@@ -86,9 +85,9 @@ public class SmartLaundrySimulation extends JFrame {
     public static volatile boolean paymentDown = false;
     public static volatile boolean ownerCalled = false;
 
-    //BlockingQueue for log messages — Mechanism 4
-    public static final LinkedBlockingQueue<String> logQueue =
-            new LinkedBlockingQueue<>(2000);
+//    //BlockingQueue for log messages — Mechanism 4
+//    public static final LinkedBlockingQueue<String> logQueue =
+//            new LinkedBlockingQueue<>(2000);
 
     // Customer list (for dot-grid display)
     public static final List<CustomerThread> customers =
@@ -615,36 +614,56 @@ private class CustomerArrivePanel extends JPanel {
         arrival.start();
 
 
-        // Bonus monitor thread 
-        Thread bonus = new Thread(() -> {
+        // Bonus monitor thread (bonussss mark crash the paymennt kiosk )
+        Thread bonus = new Thread(new Runnable() {
+        @Override
+            public void run() {
+            Random random = new Random(); 
             try {
                 while (running) {
-                    int q = payQueueSize.get();
-                    if (!paymentDown && !ownerCalled && q >= 8) {
-                        if (new Random().nextDouble() < 0.40) {
-                            paymentDown = true;
-                            log("🔴 BONUS: BOTH kiosks FAILED! " + q + " in queue!");
-                            SwingUtilities.invokeLater(() ->
-                                lblTitle.setText("⚠ PAYMENT SYSTEM DOWN — OWNER CALLED!"));
-                        }
-                    }
-                    if (paymentDown && !ownerCalled && payQueueSize.get() >= 30) {
-                        ownerCalled = true;
-                        log("📞 OWNER called in! Fixing payment system...");
-                        Thread.sleep(8000);
+                    int q = paymentMonitor.getQueueSize();
+
+                // Crash when 8 or more customers are waiting
+                    if (!paymentDown && random.nextInt(100)<5) {
+                        paymentDown = true;
+                        paymentMonitor.setSystemDown(true);
+
+                        log("Payment Kiosk Crashed!! ");
+
+                        SwingUtilities.invokeLater(new Runnable() {
+                            @Override
+                            public void run() {
+                                 lblTitle.setText("⚠ PAYMENT SYSTEM DOWN — REPAIRING...");
+                                 lblTitle.setForeground(Color.RED);
+                            }
+                        }); 
+
+                        Thread.sleep(5000); // wait 5 seconds
+
                         paymentDown = false;
-                        log("✅ Payment system RESTORED by owner.");
-                        SwingUtilities.invokeLater(() ->
-                            lblTitle.setText("Smart Laundry Facility Simulation"));
+                        paymentMonitor.setSystemDown(false);
+
+                        log("Payment system automatically repaired.");
+
+                        SwingUtilities.invokeLater(new Runnable() {
+                            @Override
+                            public void run() {
+                                lblTitle.setText("Smart Laundry Facility Simulation");
+                                lblTitle.setForeground(Color.WHITE);
+                            }
+                        });
                     }
+
                     Thread.sleep(400);
                 }
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
             }
-        }, "BonusMonitor");
-        bonus.setDaemon(true);
-        bonus.start();
+        }
+    }, "BonusMonitor");
+
+    bonus.setDaemon(true);
+    bonus.start();
     }
 
     //using volatile
@@ -675,7 +694,6 @@ private class CustomerArrivePanel extends JPanel {
             statDone = 0;
             statLeft = 0;
             statTotalMs = 0;
-            ownerAlert.signalAll();
         } finally {
             statsLock.unlock ();
         }
@@ -721,7 +739,7 @@ private class CustomerArrivePanel extends JPanel {
             Arrays.fill(basketBusy, false); Arrays.fill(basketOwner, 0);
             Arrays.fill(kioskBusy, false); Arrays.fill(kioskOwner,  0);
         }
-        logQueue.clear();
+//        logQueue.clear();
         customers.clear();
     }
 
@@ -810,7 +828,7 @@ private class CustomerArrivePanel extends JPanel {
     public static void log (String msg) {
         long elapsed = System.currentTimeMillis() - simStartTime;
         String format = String.format ( "[%5.1fs] %s", elapsed / 1000.0 , msg);
-        logQueue.offer(format);
+//        logQueue.offer(format);
         System.out.println(format);
     }
 

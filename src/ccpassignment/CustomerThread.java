@@ -9,8 +9,6 @@ import java.util.Random;
  *
  * @author Xenia Thor
  */
-
-
 public class CustomerThread extends Thread {
 
     // Customer visible state
