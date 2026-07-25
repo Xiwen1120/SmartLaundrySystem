@@ -17,6 +17,7 @@ public class MachineIconPanel extends JPanel {
     private final Type type;
     private final String label;
     private boolean busy  = false;
+    private boolean down = false;
     private int owner = 0;
 
     private static BufferedImage imageWasher;
@@ -71,6 +72,11 @@ public class MachineIconPanel extends JPanel {
     public void setStatus(boolean busy, int ownerId) {
         this.busy  = busy;
         this.owner = ownerId;
+        repaint();
+    }
+    
+    public void setDown(boolean down) {
+        this.down = down;
         repaint();
     }
 

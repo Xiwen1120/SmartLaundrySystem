@@ -51,7 +51,7 @@ public class CustomerDotPanel extends JPanel {
         List<SmartLaundrySimulation.CustomerState> states = new ArrayList<>();
         synchronized (SmartLaundrySimulation.customers) {
             for (CustomerThread c : SmartLaundrySimulation.customers) {
-                states.add(c.CustomerState);
+                states.add(c.customerState);
             }
         }
 

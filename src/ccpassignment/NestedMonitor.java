@@ -21,11 +21,11 @@ public class NestedMonitor {
     
     public synchronized void customerArrived (int customerID) {
         queueCount++;
-        SmartLaundrySimulation.log(
+        SmartLaundrySimulation.messageTerminal(
         "[PaymentQueue]Customer-" +customerID + "entered queue. Queue size: " + queueCount);
         if (queueCount >=30 && !SmartLaundrySimulation.ownerCalled) {
             SmartLaundrySimulation.ownerCalled = true;
-            SmartLaundrySimulation.log (
+            SmartLaundrySimulation.messageTerminal (
             "[PaymentQueue] Customer called! " +
                 queueCount + " customers waiting!");
         }
@@ -36,7 +36,7 @@ public class NestedMonitor {
     // called by CustomerThread
     public synchronized void customerLeft (int customerID) {
         if (queueCount > 0) queueCount--;
-        SmartLaundrySimulation.log(
+        SmartLaundrySimulation.messageTerminal(
             "[PaymentQueue] Customer-" + customerID +
             " left queue. Remaining: " + queueCount);
         notifyAll(); //notify anyone monitoring this state
@@ -48,7 +48,7 @@ public class NestedMonitor {
  
         long deadline = System.currentTimeMillis() + timeoutMs;
         waitingCount++;
-        SmartLaundrySimulation.log(
+        SmartLaundrySimulation.messageTerminal(
             "[PaymentQueue] Customer-" + customerId +
             " waiting — kiosks DOWN. Blocked: " + waitingCount);
         
@@ -56,7 +56,7 @@ public class NestedMonitor {
             long remaining = deadline - System.currentTimeMillis();
             if (remaining <= 0) {
                 waitingCount--;
-                SmartLaundrySimulation.log(
+                SmartLaundrySimulation.messageTerminal(
                     "[PaymentQueue] Customer-" + customerId +
                     " gave up waiting (system still down).");
                 return false; // patience expired
@@ -64,7 +64,7 @@ public class NestedMonitor {
             wait(remaining); // release lock + suspend (Week 6)
         }
         waitingCount--;
-        SmartLaundrySimulation.log(
+        SmartLaundrySimulation.messageTerminal(
             "[PaymentQueue] Customer-" + customerId +
             " woke up — system restored, proceeding.");
         return true;
@@ -73,12 +73,12 @@ public class NestedMonitor {
     public synchronized void setSystemDown (boolean down) {
         this.systemDown = down;
         if (!down) {
-            SmartLaundrySimulation.log(
+            SmartLaundrySimulation.messageTerminal(
                 "[PaymentQueue] System RESTORED. Waking " +
                 waitingCount + " blocked customers.");
             notifyAll(); // Week 6 — wake ALL waiting threads
         } else {
-            SmartLaundrySimulation.log(
+            SmartLaundrySimulation.messageTerminal(
                 "[PaymentQueue] System DOWN. " +
                 queueCount + " customers affected.");
         }

@@ -8,12 +8,13 @@ import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
 import java.util.*;
 import java.util.List;
-//import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.*;
 import java.util.concurrent.locks.*;
 import javax.imageio.ImageIO;
+import java.net.URL;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.sound.sampled.*;
-
 
 
 /**
@@ -47,6 +48,7 @@ public class SmartLaundrySimulation extends JFrame {
     public static int  statDone = 0;
     public static int  statLeft = 0;
     public static long statTotalMs = 0;
+    public static long statLeftMs = 0; 
 
     // AtomicInteger counters — Mechanism 3 
     public static final AtomicInteger activeWashers = new AtomicInteger(0);
@@ -76,6 +78,7 @@ public class SmartLaundrySimulation extends JFrame {
     public static final int[] basketOwner = new int[NUM_BASKETS];
     public static final boolean[] kioskBusy = new boolean[NUM_KIOSKS];
     public static final int[] kioskOwner = new int[NUM_KIOSKS];
+    public static final boolean[] kioskDown = new boolean[NUM_KIOSKS];
     
     // Lock protecting all *Busy / *Owner arrays
     public static final Object machineLock = new Object();
@@ -164,7 +167,7 @@ public class SmartLaundrySimulation extends JFrame {
         progresBarWasher = makePB("Waching Machine", 6);
         progressBarDryer  = makePB("Dryer", 4);
         pbKiosk  = makePB("Payment Kiosk", 2);
-        pbBasket = makePB("Basket", 3);
+        pbBasket = makePB("Basket", NUM_BASKETS);
         pbTotalLeft = makePB("Total Left", TOTAL_CUSTOMERS);
         pbTotalDone = makePB("Total Done", TOTAL_CUSTOMERS);
         pbRow.add(wrapPB("Waching Machine", progresBarWasher));
@@ -428,7 +431,7 @@ private class CustomerArrivePanel extends JPanel {
         List<int[]> snapshot = new ArrayList<>();
         synchronized (SmartLaundrySimulation.customers) {
             for (CustomerThread c : SmartLaundrySimulation.customers) {
-                snapshot.add(new int[]{ c.id, c.CustomerState.ordinal() });
+                snapshot.add(new int[]{ c.id, c.customerState.ordinal() });
             }
         }
 
@@ -466,9 +469,9 @@ private class CustomerArrivePanel extends JPanel {
 
             // Pick icon based on state
             BufferedImage icon;
-            if (failed)         icon = iconFailed;   // 10% machine/kiosk fail
+            if (failed) icon = iconFailed;   // 10% machine/kiosk fail
             else if (inProcess) icon = iconProcess;  // using basket/washer/dryer/kiosk
-            else                icon = iconCustomer; // just arrived
+            else icon = iconCustomer; // just arrived
 
             if (icon != null) {
                 g2.drawImage(icon, px, py, iconSize, iconSize, this);
@@ -618,48 +621,85 @@ private class CustomerArrivePanel extends JPanel {
         Thread bonus = new Thread(new Runnable() {
         @Override
             public void run() {
-            Random random = new Random(); 
-            try {
-                while (running) {
-                    int q = paymentMonitor.getQueueSize();
+    Random random = new Random();
+    if (random.nextInt(100) < 10) {
+        //messageTerminal("Payment kiosk failed. Customer retrying...");
 
-                // Crash when 8 or more customers are waiting
-                    if (!paymentDown && random.nextInt(100)<5) {
-                        paymentDown = true;
-                        paymentMonitor.setSystemDown(true);
+        int failedKiosk = random.nextInt(NUM_KIOSKS);
 
-                        log("Payment Kiosk Crashed!! ");
-
-                        SwingUtilities.invokeLater(new Runnable() {
-                            @Override
-                            public void run() {
-                                 lblTitle.setText("⚠ PAYMENT SYSTEM DOWN — REPAIRING...");
-                                 lblTitle.setForeground(Color.RED);
-                            }
-                        }); 
-
-                        Thread.sleep(5000); // wait 5 seconds
-
-                        paymentDown = false;
-                        paymentMonitor.setSystemDown(false);
-
-                        log("Payment system automatically repaired.");
-
-                        SwingUtilities.invokeLater(new Runnable() {
-                            @Override
-                            public void run() {
-                                lblTitle.setText("Smart Laundry Facility Simulation");
-                                lblTitle.setForeground(Color.WHITE);
-                            }
-                        });
-                    }
-
-                    Thread.sleep(400);
-                }
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-            }
+        synchronized(machineLock){
+            kioskDown[failedKiosk] = true;
         }
+
+        messageTerminal(
+            "ATM" + (failedKiosk + 1) + " failed"
+        );
+
+
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException ex) {
+            Logger.getLogger(SmartLaundrySimulation.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+
+        synchronized(machineLock){
+            kioskDown[failedKiosk] = false;
+        }
+
+        messageTerminal(
+            "ATM" + (failedKiosk + 1) + " repaired"
+        );
+    }
+    String[] reasons = {
+        "Payment gateway timeout",
+        "Payment service is busy now"
+    };
+    try {
+        // Pick a random moment 10–30s into the run to trigger the outage.
+        // Deliberately NOT gated on queue size — the outage causes the
+        // congestion, the congestion doesn't cause the outage.
+        long triggerAt = 10_000 + random.nextInt(20_000);
+        boolean triggered = false;
+
+        while (running) {
+            long elapsed = System.currentTimeMillis() - simStartTime;
+
+            if (!triggered && elapsed >= triggerAt) {
+                triggered = true;
+                //bonus requirement
+                paymentDown = true;
+                paymentMonitor.setSystemDown(true);
+
+                String reason = reasons[random.nextInt(reasons.length)];
+                messageTerminal("[System] " + reason + " — BOTH kiosks down!");
+
+                SwingUtilities.invokeLater(new Runnable() {
+                    @Override public void run() {
+                        lblTitle.setText("⚠ " + reason + " Repairing...");
+                        lblTitle.setForeground(Color.RED);
+                    }
+                });
+
+                Thread.sleep(15_000); // stays down long enough for the queue to actually build
+
+                paymentDown = false;
+                paymentMonitor.setSystemDown(false);
+                messageTerminal("[System] Payment kiosk repaired.");
+
+                SwingUtilities.invokeLater(new Runnable() {
+                    @Override public void run() {
+                        lblTitle.setText("Smart Laundry Facility Simulation");
+                        lblTitle.setForeground(Color.WHITE);
+                    }
+                });
+            }
+            Thread.sleep(400);
+        }
+    } catch (InterruptedException ex) {
+        Thread.currentThread().interrupt();
+    }
+}
     }, "BonusMonitor");
 
     bonus.setDaemon(true);
@@ -671,7 +711,7 @@ private class CustomerArrivePanel extends JPanel {
         running = false;
         btnStop.setEnabled(false);
         btnStart.setEnabled(true);
-        log("Simulation stopped by user.");
+        System.out.println("Simulation stopped.");
     }
 
     private void resetSim() {
@@ -687,13 +727,14 @@ private class CustomerArrivePanel extends JPanel {
 }
     
     private void cancelSim(){
-        //using volatile (for stop arrival loop)
+        //using volatile concept for stop func
         running = false; 
         statsLock.lock();
         try {
             statDone = 0;
             statLeft = 0;
             statTotalMs = 0;
+            statLeftMs = 0;
         } finally {
             statsLock.unlock ();
         }
@@ -705,22 +746,34 @@ private class CustomerArrivePanel extends JPanel {
                     c.interrupt();
                     count++;
                 }
-            }
+            } 
         } final int interrupted = count;
+        //UI update
         SwingUtilities.invokeLater(() -> {
+            running = false;   
+            hardReset(); //clear data
+            refreshBtn();
+            
             btnCancel.setEnabled(false);
             btnStart .setEnabled(true);
             btnStop  .setEnabled(false);
-            log("CANCEL: " + interrupted + " thread(s) interrupted — all marked LEFT.");
+            System.out.println( "Already cancel, please press START for rerun the system");
     });
-        
+      
     }
 
     private void hardReset() {
         simStartTime = System.currentTimeMillis();
         statsLock.lock();
-        try { statDone = 0; statLeft = 0; statTotalMs = 0; }
-        finally { statsLock.unlock(); }
+        try { 
+            statDone = 0; 
+            statLeft = 0; 
+            statTotalMs = 0;
+            statLeftMs = 0;
+        } finally { 
+            statsLock.unlock(); 
+        }
+        
         semWasher.reset(NUM_WASHERS);
         semDryer.reset(NUM_DRYERS);
         semKiosk.reset(NUM_KIOSKS);
@@ -738,8 +791,8 @@ private class CustomerArrivePanel extends JPanel {
             Arrays.fill(dryerBusy, false); Arrays.fill(dryerOwner,  0);
             Arrays.fill(basketBusy, false); Arrays.fill(basketOwner, 0);
             Arrays.fill(kioskBusy, false); Arrays.fill(kioskOwner,  0);
+            Arrays.fill(kioskDown, false);
         }
-//        logQueue.clear();
         customers.clear();
     }
 
@@ -761,11 +814,12 @@ private class CustomerArrivePanel extends JPanel {
         // Customer counter
         statsLock.lock();
         int done, left; 
-        long ms;
+        long ms, leftMs;
         try { 
             done = statDone; 
             left = statLeft; 
             ms = statTotalMs; 
+            leftMs = statLeftMs;
         } finally { statsLock.unlock(); }
         lblProgress.setText((done + left) + "/50");
         
@@ -790,42 +844,51 @@ private class CustomerArrivePanel extends JPanel {
             }
             if (!anyAlive) {
                 running = false;
-                printFinalStats(done, left, ms);
+                printFinalStats(done, left, ms, leftMs);
                 btnStart.setEnabled(true);
                 btnStop .setEnabled(false);
             }
         }
     }
+    
 
     private void updateAllPanels() {
         synchronized (machineLock) {
             for (int i = 0; i < NUM_WASHERS; i++)
+            {
                 washerPanels[i].setStatus(washerBusy[i], washerOwner[i]);
-            for (int i = 0; i < NUM_DRYERS; i++)
+            }
+            for (int i = 0; i < NUM_DRYERS; i++) {
                 dryerPanels[i].setStatus(dryerBusy[i], dryerOwner[i]);
-            for (int i = 0; i < NUM_KIOSKS; i++)
+            }
+            for (int i = 0; i < NUM_KIOSKS; i++) {
                 kioskPanels[i].setStatus(kioskBusy[i], kioskOwner[i]);
-            for (int i = 0; i < NUM_BASKETS; i++)
+                kioskPanels[i].setDown(kioskDown[i]);
+            }
+            for (int i = 0; i < NUM_BASKETS; i++) 
+            {
                 basketPanels[i].setStatus(basketBusy[i], basketOwner[i]);
+            }
         }
     }
 
-    private void printFinalStats(int done, int left, long ms) {
+    private void printFinalStats(int done, int left, long ms, long leftMs) {
         double avg = done > 0 ? (ms / (double) done) / 1000.0 : 0;
-        log("Total Customers: " + TOTAL_CUSTOMERS);
-        log("✅ Completed: " + done);
-        log("🚶 Left (impatient): " + left);
-        log(String.format("⏱  Average time/cust  : %.2f s", avg));
-        log("📈 Peak Washers: " + peakWashers.get() + " / " + NUM_WASHERS);
-        log("📈 Peak Dryers: " + peakDryers.get()  + " / " + NUM_DRYERS);
-        log(String.format(" Total Simulation Duration Time  : %.1f s", 
+        double avgLeft = left >0 ? (leftMs/(double) left) / 1000.0:0;
+        System.out.println("Total Customers: " + TOTAL_CUSTOMERS);
+        System.out.println("✅ Completed: " + done);
+        System.out.println("🚶 Left (impatient): " + left);
+        System.out.println(String.format("Avg time before giving up: %.2f s", avgLeft));
+        System.out.println ("Washers: " + peakWashers.get() + " / " + NUM_WASHERS);
+        System.out.println("Dryers: " + peakDryers.get()  + " / " + NUM_DRYERS);
+        System.out.println(String.format("Total Simulation Duration Time  : %.1f s", 
             (System.currentTimeMillis() - simStartTime) / 1000.0));
     }
     
     //for the start time and duration time used
     private static long simStartTime = 0;
     // Thread-safe log to activity area
-    public static void log (String msg) {
+    public static void messageTerminal (String msg) {
         long elapsed = System.currentTimeMillis() - simStartTime;
         String format = String.format ( "[%5.1fs] %s", elapsed / 1000.0 , msg);
 //        logQueue.offer(format);
@@ -834,32 +897,27 @@ private class CustomerArrivePanel extends JPanel {
 
     // Beep on payment complete 
     public static void playBeep() {
-        new Thread(() -> {
-            try {
-                float rate  = 44100f;
-                int durMs = 150;
-                int   n     = (int)(rate * durMs / 1000);
-                byte[] buf  = new byte[n * 2];
-                double freq = 880.0;
-                for (int i = 0; i < n; i++) {
-                    double angle = 2.0 * Math.PI * i * freq / rate;
-                    // Fade out
-                    double amp = 28000.0 * (1.0 - (double) i / n);
-                    short  v   = (short)(Math.sin(angle) * amp);
-                    buf[2*i]   = (byte)(v & 0xff);
-                    buf[2*i+1] = (byte)((v >> 8) & 0xff);
+        new Thread(new Runnable() {
+            public void run() {
+                try {
+                    java.net.URL soundUrl = SmartLaundrySimulation.class.getResource("/MP3Sound/paymentSuccessSound.wav");
+
+                    if (soundUrl == null) {
+                        System.out.println("Sound not found");
+                        return;
+                    }
+
+                    AudioInputStream audioIn = AudioSystem.getAudioInputStream(soundUrl);
+                    Clip clip = AudioSystem.getClip();
+                    clip.open(audioIn);
+                    clip.start();
+                } catch (Exception e) {
+                    System.out.println("Cannot play the sound");
                 }
-                AudioFormat fmt = new AudioFormat(rate, 16, 1, true, false);
-                DataLine.Info info = new DataLine.Info(SourceDataLine.class, fmt);
-                SourceDataLine line = (SourceDataLine) AudioSystem.getLine(info);
-                line.open(fmt); line.start();
-                line.write(buf, 0, buf.length);
-                line.drain(); line.close();
-            } catch (Exception e) {
-                Toolkit.getDefaultToolkit().beep();
             }
-        }, "BeepThread").start();
+        }, "PaymentSoundThread").start();
     }
+    
 
     public static void main(String[] args) {
     // Runnable is an interface with one method: run()

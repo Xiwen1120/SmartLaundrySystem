@@ -12,13 +12,13 @@ import java.util.Random;
 public class CustomerThread extends Thread {
 
     // Customer visible state
-    public volatile SmartLaundrySimulation.CustomerState CustomerState =
+    public volatile SmartLaundrySimulation.CustomerState customerState =
         SmartLaundrySimulation.CustomerState.ARRIVED;
 
     //unique customerID
     public final int id;
     private final long startMs;
-    private final long patienceMs; // total patience window (30-55 s)
+    private final long patienceMs; // total patience window (20-40 s)
     private long totalWaitMs; // accumulated wait time
     private final Random rng = new Random();
 
@@ -32,7 +32,7 @@ public class CustomerThread extends Thread {
         this.patienceMs = patienceSeconds*1000L;
         
         //customer arrive message (print out in gui and output)
-        SmartLaundrySimulation.log (
+        SmartLaundrySimulation.messageTerminal (
         "Customer " + id + " ARIVED (patience = " + patienceSeconds + "s)");
     }
 
@@ -61,7 +61,7 @@ public class CustomerThread extends Thread {
 
         // Return basket before payment (rank drops from 3 back to none)
         releaseBasket(basketSlot);
-        SmartLaundrySimulation.log(
+        SmartLaundrySimulation.messageTerminal(
             "Customer  " + id + " have return the basket");
 
         // STEP 4 — Payment Kiosk (rank 4)
@@ -69,7 +69,7 @@ public class CustomerThread extends Thread {
         if (!paid) return;
 
         // DONE 
-        CustomerState = SmartLaundrySimulation.CustomerState.DONE;
+        customerState = SmartLaundrySimulation.CustomerState.DONE;
         long elapsed = System.currentTimeMillis() - startMs;
         //mechanism 3 - AtomicInteger: lock-free increment
         SmartLaundrySimulation.statsLock.lock();
@@ -78,7 +78,7 @@ public class CustomerThread extends Thread {
             SmartLaundrySimulation.statTotalMs += elapsed;
         } finally { SmartLaundrySimulation.statsLock.unlock(); }
         
-        SmartLaundrySimulation.log(
+        SmartLaundrySimulation.messageTerminal(
             "Customer " + id + " DONE  total=" + (elapsed/1000) + "s");
     }
 
@@ -86,14 +86,14 @@ public class CustomerThread extends Thread {
 // Then claim a RANDOM free slot in basketBusy[] for the GUI.
 // Returns slot index (0-2), or -1 if timed out / interrupted.
     private int acquireBasket() {
-        CustomerState = SmartLaundrySimulation.CustomerState.BASKET;
+        customerState = SmartLaundrySimulation.CustomerState.BASKET;
         long rem = remaining();
         if (rem <= 0) {
             tiredOfWaiting("no patience on arrival");
             return -1;
         }
  
-        SmartLaundrySimulation.log(
+        SmartLaundrySimulation.messageTerminal(
             "Customer " + id + " waiting for basket...");
         long t0 = System.currentTimeMillis();
         boolean ok;
@@ -119,7 +119,7 @@ public class CustomerThread extends Thread {
         int slot = claimRandomSlot(
             SmartLaundrySimulation.basketBusy,
             SmartLaundrySimulation.basketOwner);
-        SmartLaundrySimulation.log(
+        SmartLaundrySimulation.messageTerminal(
             "Customer " + id + " get basket" + (slot + 1));
         return slot;
     }
@@ -138,14 +138,14 @@ public class CustomerThread extends Thread {
     //  STEP 2: WASHING  (10% failure → retry up to 3×)
     private boolean doWashing() {
         for (int attempt = 1; attempt <= 3; attempt++) {
-            CustomerState = SmartLaundrySimulation.CustomerState.WASHING;
+            customerState = SmartLaundrySimulation.CustomerState.WASHING;
             long rem = remaining();
             if (rem <= 0) {
                 tiredOfWaiting("ran out of patience before washer");
                 return false;
             }
  
-            SmartLaundrySimulation.log
+            SmartLaundrySimulation.messageTerminal
             (
                 "Customer " + id +
                 " waiting for washer (attempt " + attempt + ")...");
@@ -178,7 +178,7 @@ public class CustomerThread extends Thread {
                 SmartLaundrySimulation.peakWashers, cur);
  
             int washMs = 4_000 + rng.nextInt(2_001); // 4-6 seconds
-            SmartLaundrySimulation.log(
+            SmartLaundrySimulation.messageTerminal(
                 "Customer " + id + " WASHING now" + (slot + 1) +
                 " (" + washMs / 1000 + "s, attempt " + attempt + ")");
  
@@ -202,7 +202,7 @@ public class CustomerThread extends Thread {
  
             // 10% machine failure — retry loop
             if (rng.nextDouble() < 0.10) {
-                SmartLaundrySimulation.log(
+                SmartLaundrySimulation.messageTerminal(
                     "Customer " + id + " - W" + (slot + 1) +
                     " FAILED mid-cycle! Retrying in 2s...");
                 try { Thread.sleep(2_000); }
@@ -214,7 +214,7 @@ public class CustomerThread extends Thread {
                 continue; // retry
             }
  
-            SmartLaundrySimulation.log(
+            SmartLaundrySimulation.messageTerminal(
                 "Customer " + id + " finished WASHING");
             return true;
         }
@@ -225,14 +225,14 @@ public class CustomerThread extends Thread {
 
     //  STEP 3: DRYING
     private boolean doDrying() {
-        CustomerState = SmartLaundrySimulation.CustomerState.DRYING;
+        customerState = SmartLaundrySimulation.CustomerState.DRYING;
         long rem = remaining();
         if (rem <= 0) {
             tiredOfWaiting("ran out of patience before dryer");
             return false;
         }
  
-        SmartLaundrySimulation.log(
+        SmartLaundrySimulation.messageTerminal(
             "Customer " + id + " waiting for dryer...");
         long t0 = System.currentTimeMillis();
         boolean ok;
@@ -261,7 +261,7 @@ public class CustomerThread extends Thread {
             SmartLaundrySimulation.peakDryers, cur);
  
         int dryMs = 3_000 + rng.nextInt(2_001); // 3-5 seconds
-        SmartLaundrySimulation.log(
+        SmartLaundrySimulation.messageTerminal(
             "Customer " + id + " DRYING now" + (slot + 1) +
             " (" + dryMs / 1000 + "s)");
  
@@ -281,14 +281,14 @@ public class CustomerThread extends Thread {
                  SmartLaundrySimulation.dryerOwner, slot);
         SmartLaundrySimulation.semDryer.up(); // OUR custom up(s)
         SmartLaundrySimulation.activeDryers.decrementAndGet();
-        SmartLaundrySimulation.log(
+        SmartLaundrySimulation.messageTerminal(
             "Customer " + id + " finished DRYING");
         return true;
     }
 
     //  STEP 4: PAYMENT  (10% kiosk failure; bonus: system down)
     private boolean doPayment() {
-        CustomerState = SmartLaundrySimulation.CustomerState.PAYMENT;
+        customerState = SmartLaundrySimulation.CustomerState.PAYMENT;
         long rem = remaining();
         if (rem <= 0) {
             tiredOfWaiting("ran out of patience before payment");
@@ -350,11 +350,13 @@ public class CustomerThread extends Thread {
  
         // 10% kiosk failure — retry after 2 seconds
         if (rng.nextDouble() < 0.10) {
-            SmartLaundrySimulation.log(
+            SmartLaundrySimulation.messageTerminal(
                 "Customer " + id + " - ATM" + (slot + 1) +
-                " FAILED! Retrying in 2s...");
-            try { Thread.sleep(2_000); }
-            catch (InterruptedException e) {
+                " FAILED! Retrying in 2s..."
+            );
+            try { 
+                Thread.sleep(2_000); 
+            } catch (InterruptedException e) {
                 freeSlot(SmartLaundrySimulation.kioskBusy,
                          SmartLaundrySimulation.kioskOwner, slot);
                 SmartLaundrySimulation.semKiosk.up();
@@ -365,7 +367,7 @@ public class CustomerThread extends Thread {
             }
         }
  
-        SmartLaundrySimulation.log(
+        SmartLaundrySimulation.messageTerminal(
             "Customer " + id + " PAYING at ATM" + (slot + 1) +
             " (" + payMs / 1000 + "s)");
  
@@ -386,7 +388,7 @@ public class CustomerThread extends Thread {
         SmartLaundrySimulation.semKiosk.up(); // OUR custom up(s)
         SmartLaundrySimulation.paymentMonitor.customerLeft(id);
  
-        SmartLaundrySimulation.log(
+        SmartLaundrySimulation.messageTerminal(
             "Customer " + id + " PAID at ATM" + (slot + 1));
  
         // Play beep sound on successful payment
@@ -401,20 +403,20 @@ public class CustomerThread extends Thread {
 // rather than always filling sequentially from the start.
 // Thread-safe: called inside synchronized(machineLock).
     private void tiredOfWaiting(String reason) {
-        CustomerState = SmartLaundrySimulation.CustomerState.LEFT;
+        customerState = SmartLaundrySimulation.CustomerState.LEFT;
         long elapsed = System.currentTimeMillis() - startMs;
  
         // Mutual exclusion on statistics (Week 5)
         SmartLaundrySimulation.statsLock.lock();
         try {
             SmartLaundrySimulation.statLeft++;
-            SmartLaundrySimulation.statTotalMs += elapsed;
+            SmartLaundrySimulation.statLeftMs += elapsed;
         } finally {
             SmartLaundrySimulation.statsLock.unlock();
         }
  
         // Print the departure message with customer ID
-        SmartLaundrySimulation.log(
+        SmartLaundrySimulation.messageTerminal(
             "Customer " + id + " tired of waiting. Bye!" +
             "  [" + reason + ", waited =" + totalWaitMs / 1000 + "s]");
     }

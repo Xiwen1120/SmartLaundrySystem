@@ -3,29 +3,7 @@ package ccpassignment;
  *
  * @author Xenia Thor
  */
-// Semaphore.java — YOUR OWN CUSTOM API
-// Built from scratch using LECTURER'S EXACT code (Week 7, Slide 14).
-// This IS the custom API your lecturer wants — NOT java.util.concurrent.
-// LECTURER'S SLIDE 11-14 (Week 7):
-// HOW IT LINKS TO YOUR ASSIGNMENT:
-// smartLaundrySimulation.java creates 4 instances:
-// semWasher = new Semaphore(6, true)  — 6 washing machines
-// semDryer  = new Semaphore(4, true)  — 4 dryers
-// semKiosk  = new Semaphore(2, true)  — 2 payment kiosks
-// semBasket = new Semaphore(3, true)  — 3 baskets
-// CustomerThread.java calls:
-// semWasher.tryDown(rem) — customer waits for washer
-// semWasher.up()         — customer finishes, releases washer
-// NestedMonitor.java uses this Semaphore internally:
-// It calls semKiosk.tryDown() inside a synchronized method
-// that is the NESTED MONITOR pattern (Week 6).
-// CONCURRENT CONCEPTS (your lecture slides):
-// Week 5 — synchronized = mutual exclusion on up()/down()
-// Week 6 — wait() releases lock, suspends thread
-// notifyAll() wakes ALL threads (Week 5 lab exercise)
-// Week 7 — up()/down() = semaphore operations from slide
-// Week 9/10 — tryDown(timeout) = liveness, no starvation
-
+// create own API
 public class Semaphore {
     // private = encapsulation (only accessible via synchronized methods)
     private int value; //available permits
