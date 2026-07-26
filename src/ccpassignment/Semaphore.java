@@ -9,41 +9,24 @@ public class Semaphore {
     private int value; //available permits
     private int waitingCount; //how many thread currently blocked
 
-    /** Constructor 1 — matches lecturer's slide exactly */
+    //basic constructor: start with fix num of permits
     public Semaphore(int initial) {
         this.value = initial;
         this.waitingCount = 0;
     }
-
-    /**
-     * Constructor 2 — supports fair parameter.
-     * Called as: new Semaphore(NUM_WASHERS, true)
-     * fair=true = FIFO fairness, achieved via notifyAll()
-     * which wakes ALL threads giving everyone equal chance.
-     */
+    //overload constructor: call normal constructor above
     public Semaphore(int initial, boolean fair) {
         this(initial);
     }
     
 
-//UP — release one permit back.
-//Lecturer's slide: "up(s): if processes blocked awaken one"
-//     * synchronized = mutual exclusion (Week 5)
-//     * notifyAll()  = wake ALL waiting threads (Week 6)
-//     *   Week 5 lab: "Change Notify to NotifyAll. Explain."
-//     *   With 50 customer threads waiting, notify() wakes only 1.
-//     *   notifyAll() gives every thread a fair chance (Liveness, Week 9).
+///wake up every thread they are waiting
     public synchronized void up() {
         ++value;
         notifyAll(); // wake ALL threads blocked in down()/tryDown()
     }
 
-//DOWN — acquire one permit. Block if none available.
-//Lecturer's slide: "down(s): when s>0 decrement; else block"
-//while loop (not if) — Week 6 monitor pattern:
-//After wait() returns, another thread may have taken the permit.
-//Must re-check condition before proceeding.
-
+//if non free, thread will wait here until someone call
     public synchronized void down() throws InterruptedException {
         waitingCount++;
         while (value == 0) {
@@ -53,11 +36,7 @@ public class Semaphore {
         --value;
     }
 
-// TRY DOWN with timeout — our extension for customer patience.
-// Not in lecturer's slide — added for Liveness (Week 9/10).
-// If no permit within timeoutMs → return false (customer leaves).
-// Also used by NestedMonitor.java when it calls this semaphore
-// from inside its own synchronized method — creating a nested monitor.
+///give up after timeoutMs will waiting
     public synchronized boolean tryDown(long timeoutMs)
             throws InterruptedException {
         long deadline = System.currentTimeMillis() + timeoutMs;
@@ -97,7 +76,6 @@ public class Semaphore {
     }
     
     @Override
-    //prints semaphore state to output
     public synchronized String toString() {
         return "Semaphore [permits = " + value + ", waiting = " + waitingCount + "]";
     }

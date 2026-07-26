@@ -82,9 +82,7 @@ public class CustomerThread extends Thread {
             "Customer " + id + " DONE  total=" + (elapsed/1000) + "s");
     }
 
-//STEP 1: BASKET
-// Then claim a RANDOM free slot in basketBusy[] for the GUI.
-// Returns slot index (0-2), or -1 if timed out / interrupted.
+    //backet, claim for random free slot, return slot
     private int acquireBasket() {
         customerState = SmartLaundrySimulation.CustomerState.BASKET;
         long rem = remaining();
@@ -223,7 +221,7 @@ public class CustomerThread extends Thread {
         return false;
     }
 
-    //  STEP 3: DRYING
+    // DRYING
     private boolean doDrying() {
         customerState = SmartLaundrySimulation.CustomerState.DRYING;
         long rem = remaining();
@@ -286,7 +284,7 @@ public class CustomerThread extends Thread {
         return true;
     }
 
-    //  STEP 4: PAYMENT  (10% kiosk failure; bonus: system down)
+    // PAYMENT  (10% kiosk failure; bonus: system down)
     private boolean doPayment() {
         customerState = SmartLaundrySimulation.CustomerState.PAYMENT;
         long rem = remaining();
@@ -396,11 +394,6 @@ public class CustomerThread extends Thread {
         return true;
     }
 
-    //  HELPERS
-// Scans the busy array and collects ALL free slot indices,
-// then picks ONE at RANDOM.  This ensures that machines
-// light up randomly (W3 before W1, D4 before D1, etc.)
-// rather than always filling sequentially from the start.
 // Thread-safe: called inside synchronized(machineLock).
     private void tiredOfWaiting(String reason) {
         customerState = SmartLaundrySimulation.CustomerState.LEFT;

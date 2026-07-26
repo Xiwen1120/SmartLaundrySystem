@@ -400,14 +400,6 @@ private class CustomerArrivePanel extends JPanel {
 
     public CustomerArrivePanel() {
         try {
-            iconCustomer = ImageIO.read(
-                SmartLaundrySimulation.class.getResource("icon_customer.png"));
-        } catch (Exception e) { System.out.println("icon_customer.png not found"); }
-        try {
-            iconFailed = ImageIO.read(
-                SmartLaundrySimulation.class.getResource("icon_failled.png"));
-        } catch (Exception e) { System.out.println("icon_failled.png not found"); }
-        try {
             iconProcess = ImageIO.read(
                 SmartLaundrySimulation.class.getResource("icon_processCustomer.png"));
         } catch (Exception e) { System.out.println("icon_processCustomer.png not found"); }
