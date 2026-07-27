@@ -648,9 +648,6 @@ private class CustomerArrivePanel extends JPanel {
         "Payment service is busy now"
     };
     try {
-        // Pick a random moment 10–30s into the run to trigger the outage.
-        // Deliberately NOT gated on queue size — the outage causes the
-        // congestion, the congestion doesn't cause the outage.
         long triggerAt = 10_000 + random.nextInt(20_000);
         boolean triggered = false;
 
@@ -789,10 +786,7 @@ private class CustomerArrivePanel extends JPanel {
     }
 
     private void refreshBtn() {
-        // Drain log queue into text area
-        // Update all machine icon panels
         updateAllPanels();
-
         // Progress bars
         progresBarWasher.setValue(activeWashers.get());
         progresBarWasher.setString(activeWashers.get() + "/" + NUM_WASHERS);
@@ -875,6 +869,7 @@ private class CustomerArrivePanel extends JPanel {
         System.out.println("Dryers: " + peakDryers.get()  + " / " + NUM_DRYERS);
         System.out.println(String.format("Total Simulation Duration Time  : %.1f s", 
             (System.currentTimeMillis() - simStartTime) / 1000.0));
+        System.out.println(String.format("Average time before giving up: %.2f s", avgLeft));
     }
     
     //for the start time and duration time used

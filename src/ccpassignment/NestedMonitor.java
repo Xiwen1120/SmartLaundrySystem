@@ -33,7 +33,6 @@ public class NestedMonitor {
     //customer (queue count)
     //synchronized = nutual exclusion
     // notifyAll() = wake any threads monitoring queue
-    // called by CustomerThread
     public synchronized void customerLeft (int customerID) {
         if (queueCount > 0) queueCount--;
         SmartLaundrySimulation.messageTerminal(
@@ -44,24 +43,17 @@ public class NestedMonitor {
     
     public synchronized boolean waitIfSystemDown(int customerId, long timeoutMs)
             throws InterruptedException {
-        if (!systemDown) return true; // fast path — system is fine
+        if (!systemDown) 
+            return true; // fast path — system is fine
  
-        long deadline = System.currentTimeMillis() + timeoutMs;
+        //long deadline = System.currentTimeMillis() + timeoutMs;
         waitingCount++;
         SmartLaundrySimulation.messageTerminal(
             "[PaymentQueue] Customer-" + customerId +
             " waiting — kiosks DOWN. Blocked: " + waitingCount);
         
         while (systemDown) {
-            long remaining = deadline - System.currentTimeMillis();
-            if (remaining <= 0) {
-                waitingCount--;
-                SmartLaundrySimulation.messageTerminal(
-                    "[PaymentQueue] Customer-" + customerId +
-                    " gave up waiting (system still down).");
-                return false; // patience expired
-            }
-            wait(remaining); // release lock + suspend (Week 6)
+            wait();
         }
         waitingCount--;
         SmartLaundrySimulation.messageTerminal(

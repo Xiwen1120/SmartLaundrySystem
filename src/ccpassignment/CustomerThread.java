@@ -137,33 +137,18 @@ public class CustomerThread extends Thread {
     private boolean doWashing() {
         for (int attempt = 1; attempt <= 3; attempt++) {
             customerState = SmartLaundrySimulation.CustomerState.WASHING;
-            long rem = remaining();
-            if (rem <= 0) {
-                tiredOfWaiting("ran out of patience before washer");
-                return false;
-            }
- 
-            SmartLaundrySimulation.messageTerminal
-            (
-                "Customer " + id +
-                " waiting for washer (attempt " + attempt + ")...");
-            long t0 = System.currentTimeMillis();
-            boolean ok;
-            try {
-                // OUR CUSTOM SEMAPHORE down(s) — Week 7
-                ok = SmartLaundrySimulation.semWasher.tryDown(rem);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                tiredOfWaiting("interrupted waiting for washer");
-                return false;
-            }
-            totalWaitMs += System.currentTimeMillis() - t0;
- 
-            if (!ok) {
-                // Waited too long for washer → leave
-                tiredOfWaiting("wait too long for washer");
-                return false;
-            }
+
+            SmartLaundrySimulation.messageTerminal(
+                 "Customer " + id + " waiting for washer (attempt " + attempt + ")...");
+        long t0 = System.currentTimeMillis();
+        try {
+            SmartLaundrySimulation.semWasher.down(); // blocks until a washer is free — no timeout, no leaving
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            tiredOfWaiting("interrupted waiting for washer");
+            return false;
+        }
+        totalWaitMs += System.currentTimeMillis() - t0;
  
             // Claim random slot — synchronized = mutual exclusion (Week 5)
             int slot = claimRandomSlot(
@@ -224,31 +209,17 @@ public class CustomerThread extends Thread {
     // DRYING
     private boolean doDrying() {
         customerState = SmartLaundrySimulation.CustomerState.DRYING;
-        long rem = remaining();
-        if (rem <= 0) {
-            tiredOfWaiting("ran out of patience before dryer");
-            return false;
-        }
- 
         SmartLaundrySimulation.messageTerminal(
-            "Customer " + id + " waiting for dryer...");
+        "Customer " + id + " waiting for dryer...");
         long t0 = System.currentTimeMillis();
-        boolean ok;
-        try {
-            // OUR CUSTOM SEMAPHORE down(s) — Week 7
-            ok = SmartLaundrySimulation.semDryer.tryDown(rem);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            tiredOfWaiting("interrupted waiting for dryer");
-            return false;
-        }
+    try {
+        SmartLaundrySimulation.semDryer.down();
+    } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        tiredOfWaiting("interrupted waiting for dryer");
+        return false;
+    }
         totalWaitMs += System.currentTimeMillis() - t0;
- 
-        if (!ok) {
-            // Waited too long for dryer → leave
-            tiredOfWaiting("wait too long for dryer");
-            return false;
-        }
  
         int slot = claimRandomSlot(
             SmartLaundrySimulation.dryerBusy,
@@ -450,6 +421,6 @@ public class CustomerThread extends Thread {
  
     //Remaining patience in milliseconds
     private long remaining() {
-        return (startMs + patienceMs) - System.currentTimeMillis();
+        return patienceMs - totalWaitMs;
     }
 }
