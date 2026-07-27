@@ -4,8 +4,6 @@ package ccpassignment;
  *
  * @author Xenia Thor
  */
-
-
 public class NestedMonitor {
     //private encapsulate state
     private int queueCount = 0; //customers payment area

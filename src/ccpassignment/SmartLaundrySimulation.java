@@ -40,7 +40,7 @@ public class SmartLaundrySimulation extends JFrame {
     public static final NestedMonitor paymentMonitor = new NestedMonitor (semKiosk);
     
 //  public static final NestedMonitor paymentMonitor = new NestedMonitor (semKiosk);
-    //ReentrantLock + Condition — Mechanism 2
+    //ReentrantLock + Condition 
     //reentrantLock = guard share statistics
     //condition = for allow wait/signal
     public static final ReentrantLock statsLock  = new ReentrantLock();
@@ -50,7 +50,7 @@ public class SmartLaundrySimulation extends JFrame {
     public static long statTotalMs = 0;
     public static long statLeftMs = 0; 
 
-    // AtomicInteger counters — Mechanism 3 
+    // AtomicInteger counters 
     public static final AtomicInteger activeWashers = new AtomicInteger(0);
     public static final AtomicInteger activeDryers = new AtomicInteger(0);
     public static final AtomicInteger peakWashers = new AtomicInteger(0);
@@ -89,9 +89,6 @@ public class SmartLaundrySimulation extends JFrame {
     public static volatile boolean ownerCalled = false;
 
 //    //BlockingQueue for log messages — Mechanism 4
-//    public static final LinkedBlockingQueue<String> logQueue =
-//            new LinkedBlockingQueue<>(2000);
-
     // Customer list (for dot-grid display)
     public static final List<CustomerThread> customers =
             Collections.synchronizedList(new ArrayList<>());
@@ -101,8 +98,7 @@ public class SmartLaundrySimulation extends JFrame {
         ARRIVED, BASKET, WASHING, DRYING, PAYMENT, DONE, LEFT, FAILED
     }
 
-    // GUI design
-    // Status bars
+    // GUI design for customer Status bars
     private CustomerDotPanel dotPanel;
     private CustomerArrivePanel customerArrivePanel; 
     private JLabel lblProgress;
@@ -241,10 +237,10 @@ public class SmartLaundrySimulation extends JFrame {
         lblProgress.setBackground(new Color(80, 80, 100));
         lblProgress.setBorder(BorderFactory.createLineBorder(Color.WHITE, 1));
 
-        btnStart  = new colorBtn("Start",  new Color(34, 197, 94));   // solid green
-        btnStop   = new colorBtn("Stop",   new Color(239, 68, 68));   // solid red
-        btnReset  = new colorBtn("Reset",  new Color(234, 179, 8));   // solid yellow
-        btnCancel = new colorBtn("Cancel", new Color(6, 182, 212));   // solid cyan
+        btnStart  = new colorBtn("Start",  new Color(34, 197, 94)); // green
+        btnStop   = new colorBtn("Stop",   new Color(239, 68, 68)); // red
+        btnReset  = new colorBtn("Reset",  new Color(234, 179, 8)); // yellow
+        btnCancel = new colorBtn("Cancel", new Color(6, 182, 212)); // cyan
         btnStop.setEnabled(false);     
         btnStart.addActionListener(new ActionListener() {
             @Override
@@ -309,7 +305,6 @@ public class SmartLaundrySimulation extends JFrame {
         column.setBorder(compoundBorder("Waching Machine"));
         
         RoundedPanel grid = new RoundedPanel (61);
-//        JPanel grid = new JPanel(new GridLayout(NUM_WASHERS, 1, 0, 4));
         grid.setBackground(Color.GRAY);
         grid.setLayout(new GridLayout (NUM_WASHERS, 1,0,4));
         grid.setBorder(BorderFactory.createEmptyBorder(4, 8, 8, 8));
@@ -394,18 +389,21 @@ private JPanel buildRightSection(Color bg) {
 }
 
 private class CustomerArrivePanel extends JPanel {
-    private BufferedImage iconCustomer = null;
-    private BufferedImage iconFailed   = null;
     private BufferedImage iconProcess  = null;
 
     public CustomerArrivePanel() {
-        try {
-            iconProcess = ImageIO.read(
-                SmartLaundrySimulation.class.getResource("icon_processCustomer.png"));
-        } catch (Exception e) { System.out.println("icon_processCustomer.png not found"); }
-
         setOpaque(true);
         setBackground(new Color(218, 212, 228));
+        
+        try {
+            iconProcess = ImageIO.read(
+            getClass().getResource("icon_processCustomer.png")
+        );
+        System.out.println("Image loaded!");
+             } catch (Exception e) {
+             System.out.println("Cannot load image!");
+             e.printStackTrace();
+        }
     }
 
     @Override
@@ -417,7 +415,7 @@ private class CustomerArrivePanel extends JPanel {
         g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
                             RenderingHints.VALUE_INTERPOLATION_BICUBIC);
 
-        // CONCURRENT CONCEPT: synchronized read of shared list (Week 5)
+        // synchronized read of shared list (week 5 lec)
         // Must hold list lock during iteration to prevent ConcurrentModificationException
         // from arrival thread adding customers or cancelSim() clearing the list
         List<int[]> snapshot = new ArrayList<>();
@@ -442,12 +440,11 @@ private class CustomerArrivePanel extends JPanel {
             int id       = entry[0];
             int stateOrd = entry[1];
 
-            // CONCURRENT CONCEPT: volatile read (Week 3 / JMM)
+            // volatile read (Week 3)
             // CustomerState is volatile in CustomerThread
             // EDT always reads the latest value written by the customer thread
             boolean done = (stateOrd == CustomerState.DONE.ordinal() ||
                             stateOrd == CustomerState.LEFT.ordinal());
-            boolean failed = (stateOrd == CustomerState.FAILED.ordinal());
             boolean inProcess = (stateOrd == CustomerState.BASKET.ordinal()  ||
                                  stateOrd == CustomerState.WASHING.ordinal() ||
                                  stateOrd == CustomerState.DRYING.ordinal()  ||
@@ -458,22 +455,16 @@ private class CustomerArrivePanel extends JPanel {
 
             int px = 6 + col * (iconSize + gap);
             int py = 6 + row * (iconSize + gap + 14);
+            
+            if (iconProcess != null) {
+            g2.drawImage(iconProcess, px, py, iconSize, iconSize, this);
+}           else {
+                 g2.setColor(Color.BLUE);
+                 g2.fillOval(px, py, iconSize, iconSize);
+}
 
             // Pick icon based on state
-            BufferedImage icon;
-            if (failed) icon = iconFailed;   // 10% machine/kiosk fail
-            else if (inProcess) icon = iconProcess;  // using basket/washer/dryer/kiosk
-            else icon = iconCustomer; // just arrived
-
-            if (icon != null) {
-                g2.drawImage(icon, px, py, iconSize, iconSize, this);
-            } else {
-                // Fallback circle if image file missing
-                g2.setColor(failed ? new Color(252, 8, 73) :
-                            inProcess ? new Color(120, 200, 255) :
-                            new Color(255, 215, 80));
-                g2.fillOval(px, py, iconSize, iconSize);
-            }
+ 
 
             // Customer ID label below icon
             g2.setFont(new Font("Times New Roman", Font.BOLD, 9));
