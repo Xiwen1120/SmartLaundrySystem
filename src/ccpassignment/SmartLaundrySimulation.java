@@ -855,7 +855,7 @@ private class CustomerArrivePanel extends JPanel {
         System.out.println("Total Customers: " + TOTAL_CUSTOMERS);
         System.out.println("✅ Completed: " + done);
         System.out.println("🚶 Left (impatient): " + left);
-        System.out.println(String.format("Avg time before giving up: %.2f s", avgLeft));
+        System.out.println(String.format("Average time before giving up: %.2f s", avgLeft));
         System.out.println ("Washers: " + peakWashers.get() + " / " + NUM_WASHERS);
         System.out.println("Dryers: " + peakDryers.get()  + " / " + NUM_DRYERS);
         System.out.println(String.format("Total Simulation Duration Time  : %.1f s", 
